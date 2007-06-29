@@ -73,15 +73,16 @@ static int copy_string( char *dest, int dest_size, const char *src )
 {
     int i = 0;
 
-    if( src && dest )
+    /* gcc should optimize this out */
+    if( !src && !dest )
+        return 0;
+
+    for( i = 0 ; i < dest_size-1 ; i++ )
     {
-        for( i = 0 ; i < dest_size-1 ; i++ )
-        {
-            if( !src[i] )
-                break;
-            else
-                dest[i] = src[i];
-        }
+        if( !src[i] )
+            break;
+        else
+            dest[i] = src[i];
     }
     dest[i] = '\0';
 
