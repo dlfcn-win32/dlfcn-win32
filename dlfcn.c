@@ -200,7 +200,7 @@ void *dlsym( void *handle, const char *name )
         if( hModule == handle )
         {
             int i;
-            
+
             for( i = 0 ; i < MAX_OBJECTS ; i++ )
             {
                 if( global_objects[i] != 0 )
@@ -230,7 +230,7 @@ char *dlerror( void )
     DWORD ret;
 
     dwMessageId = GetLastError( );
-    
+
     if( dwMessageId == 0 )
         return NULL;
 

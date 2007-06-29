@@ -46,7 +46,7 @@ int main()
     char *error;
     int (*function)( void );
     int ret;
-    
+
     library = dlopen( "testdll.dll", RTLD_GLOBAL );
     if( !library )
     {
@@ -55,7 +55,7 @@ int main()
     }
     else
         printf( "Opened library globally: %p\n", library );
-    
+
     global = dlopen( 0, RTLD_GLOBAL );
     if( !global )
     {
@@ -64,7 +64,7 @@ int main()
     }
     else
         printf( "Got global handle: %p\n", global );
-    
+
     function = dlsym( library, "function" );
     if( !function )
     {
@@ -87,7 +87,7 @@ int main()
     }
     else
         printf( "Got symbol from global handle: %p\n", function );
-    
+
     if( function )
         function( );
 
@@ -99,7 +99,7 @@ int main()
     }
     else
         printf( "Closed library.\n" );
-        
+
     library = dlopen( "testdll.dll", RTLD_LOCAL );
     if( !library )
     {
