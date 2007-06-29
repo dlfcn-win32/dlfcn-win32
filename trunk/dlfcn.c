@@ -66,8 +66,13 @@ static void global_object_rem( HMODULE hModule )
     }
 }
 
-/* Argument to last function. Used in dlerror( ) */
-static char last_name[MAX_PATH];
+/* POSIX says dlerror( ) doesn't have to be thread-safe, so we use one
+ * static buffer.
+ * MSDN says the buffer cannot be larger than 64K bytes, so we set it to
+ * the limit.
+ */
+static char error_buffer[65535];
+static int dlerror_was_last_call;
 
 static int copy_string( char *dest, int dest_size, const char *src )
 {
@@ -89,19 +94,55 @@ static int copy_string( char *dest, int dest_size, const char *src )
     return i;
 }
 
+static void save_err_str( const char *str )
+{
+    DWORD dwMessageId;
+    DWORD pos;
+
+    dwMessageId = GetLastError( );
+
+    if( dwMessageId == 0 )
+        return;
+
+    /* Format error message to:
+     * "<argument to function that failed>": <Windows localized error message>
+     */
+    pos  = copy_string( error_buffer,     sizeof(error_buffer),     "\"" );
+    pos += copy_string( error_buffer+pos, sizeof(error_buffer)-pos, str );
+    pos += copy_string( error_buffer+pos, sizeof(error_buffer)-pos, "\": " );
+    pos += FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dwMessageId,
+                          MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),
+                          error_buffer+pos, sizeof(error_buffer)-pos, NULL );
+
+    if( pos > 1 )
+    {
+        /* POSIX says the string must not have trailing <newline> */
+        if( error_buffer[pos-2] == '\r' && error_buffer[pos-1] == '\n' )
+            error_buffer[pos-2] = '\0';
+    }
+}
+
+static void save_err_ptr( const void *ptr )
+{
+    char ptr_buf[19]; /* 0x<pointer> up to 64 bits. */
+
+    sprintf( ptr_buf, "0x%p", ptr );
+
+    save_err_str( ptr_buf );
+}
+
 void *dlopen( const char *file, int mode )
 {
     HMODULE hModule;
     UINT uMode;
+
+    dlerror_was_last_call = 0;
 
     /* Do not let Windows display the critical-error-handler message box */
     uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
 
     if( file == 0 )
     {
-        /* Save NULL pointer for error message */
-        sprintf( last_name, "0x%p", file );
-
         /* POSIX says that if the value of file is 0, a handle on a global
          * symbol object must be provided. That object must be able to access
          * all symbols from the original program file, and any objects loaded
@@ -111,6 +152,9 @@ void *dlopen( const char *file, int mode )
          * the RTLD_GLOBAL flag, we create our own list later on.
          */
         hModule = GetModuleHandle( NULL );
+
+        if( !hModule )
+            save_err_ptr( file );
     }
     else
     {
@@ -129,9 +173,6 @@ void *dlopen( const char *file, int mode )
         }
         lpFileName[i] = '\0';
 
-        /* Save file name for error message */
-        copy_string( last_name, sizeof(last_name), lpFileName );
-
         /* POSIX says the search path is implementation-defined.
          * LOAD_WITH_ALTERED_SEARCH_PATH is used to make it behave more closely
          * to UNIX's search paths (start with system folders instead of current
@@ -147,7 +188,9 @@ void *dlopen( const char *file, int mode )
          * RTLD_GLOBAL, even if any further invocations use RTLD_LOCAL, the
          * symbols will remain global.
          */
-        if( hModule && (mode & RTLD_GLOBAL) )
+        if( !hModule )
+            save_err_str( lpFileName );
+        else if( (mode & RTLD_GLOBAL) )
             global_object_add( hModule );
     }
 
@@ -162,8 +205,7 @@ int dlclose( void *handle )
     HMODULE hModule = (HMODULE) handle;
     BOOL ret;
 
-    /* Save handle for error message */
-    sprintf( last_name, "0x%p", handle );
+    dlerror_was_last_call = 0;
 
     ret = FreeLibrary( hModule );
 
@@ -172,6 +214,8 @@ int dlclose( void *handle )
      */
     if( ret )
         global_object_rem( hModule );
+    else
+        save_err_ptr( handle );
 
     /* dlclose's return value in inverted in relation to FreeLibrary's. */
     ret = !ret;
@@ -183,8 +227,7 @@ void *dlsym( void *handle, const char *name )
 {
     FARPROC symbol;
 
-    /* Save symbol name for error message */
-    copy_string( last_name, sizeof(last_name), name );
+    dlerror_was_last_call = 0;
 
     symbol = GetProcAddress( handle, name );
 
@@ -216,46 +259,21 @@ void *dlsym( void *handle, const char *name )
         CloseHandle( hModule );
     }
 
+    if( symbol == NULL )
+        save_err_str( name );
+
     return (void*) symbol;
 }
 
 char *dlerror( void )
 {
-    DWORD dwMessageId;
-    /* POSIX says this function doesn't have to be thread-safe, so we use one
-     * static buffer.
-     * MSDN says the buffer cannot be larger than 64K bytes, so we set it to
-     * the limit.
-     */
-    static char lpBuffer[65535];
-    DWORD ret;
-
-    dwMessageId = GetLastError( );
-
-    if( dwMessageId == 0 )
-        return NULL;
-
-    /* Format error message to:
-     * "<argument to function that failed>": <Windows localized error message>
-     */
-    ret  = copy_string( lpBuffer, sizeof(lpBuffer), "\"" );
-    ret += copy_string( lpBuffer+ret, sizeof(lpBuffer)-ret, last_name );
-    ret += copy_string( lpBuffer+ret, sizeof(lpBuffer)-ret, "\": " );
-    ret += FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dwMessageId,
-                          MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),
-                          lpBuffer+ret, sizeof(lpBuffer)-ret, NULL );
-
-    if( ret > 1 )
-    {
-        /* POSIX says the string must not have trailing <newline> */
-        if( lpBuffer[ret-2] == '\r' && lpBuffer[ret-1] == '\n' )
-            lpBuffer[ret-2] = '\0';
-    }
-
     /* POSIX says that invoking dlerror( ) a second time, immediately following
      * a prior invocation, shall result in NULL being returned.
      */
-    SetLastError(0);
+    if( dlerror_was_last_call )
+        return NULL;
 
-    return lpBuffer;
+    dlerror_was_last_call = 1;
+
+    return error_buffer;
 }
