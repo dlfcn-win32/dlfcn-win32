@@ -27,43 +27,76 @@
  * any kind of thread safety.
  */
 
-/* I have no special reason to have set MAX_GLOBAL_OBJECTS to this value. Any
- * comments are welcome.
- */
-#define MAX_OBJECTS 255
+typedef struct global_object {
+    HMODULE hModule;
+    struct global_object *previous;
+    struct global_object *next;
+} global_object;
 
-static HMODULE global_objects[MAX_OBJECTS];
+static global_object first_object;
 
-/* This function adds an object to the list of global objects.
- * The implementation is very simple and slow.
- * TODO: should failing this function be enough to fail the call to dlopen( )?
- */
-static void global_object_add( HMODULE hModule )
+/* These functions implement a double linked list for the global objects. */
+static global_object *global_search( HMODULE hModule )
 {
-    int i;
+    global_object *pobject;
 
-    for( i = 0 ; i < MAX_OBJECTS ; i++ )
-    {
-        if( !global_objects[i] )
-        {
-            global_objects[i] = hModule;
-            break;
-        }
-    }
+    if( hModule == NULL )
+        return NULL;
+
+    for( pobject = &first_object; pobject ; pobject = pobject->next )
+        if( pobject->hModule == hModule )
+            return pobject;
+
+    return NULL;
 }
 
-static void global_object_rem( HMODULE hModule )
+static void global_add( HMODULE hModule )
 {
-    int i;
+    global_object *pobject;
+    global_object *nobject;
 
-    for( i = 0 ; i < MAX_OBJECTS ; i++ )
-    {
-        if( global_objects[i] == hModule )
-        {
-            global_objects[i] = 0;
-            break;
-        }
-    }
+    if( hModule == NULL )
+        return;
+
+    pobject = global_search( hModule );
+
+    /* Do not add object again if it's already on the list */
+    if( pobject )
+        return;
+
+    for( pobject = &first_object; pobject->next ; pobject = pobject->next );
+
+    nobject = malloc( sizeof(global_object) );
+
+    /* Should this be enough to fail global_add, and therefore also fail
+     * dlopen?
+     */
+    if( !nobject )
+        return;
+
+    pobject->next = nobject;
+    nobject->previous = pobject;
+    nobject->hModule = hModule;
+}
+
+static void global_rem( HMODULE hModule )
+{
+    global_object *pobject;
+
+    if( hModule == NULL )
+        return;
+
+    pobject = global_search( hModule );
+
+    if( !pobject )
+        return;
+
+    if( pobject->next )
+        pobject->next->previous = pobject->previous;
+    if( pobject->previous )
+        pobject->previous->next = pobject->next;
+
+    free( pobject );
 }
 
 /* POSIX says dlerror( ) doesn't have to be thread-safe, so we use one
@@ -191,7 +224,7 @@ void *dlopen( const char *file, int mode )
         if( !hModule )
             save_err_str( lpFileName );
         else if( (mode & RTLD_GLOBAL) )
-            global_object_add( hModule );
+            global_add( hModule );
     }
 
     /* Return to previous state of the error-mode bit flags. */
@@ -213,7 +246,7 @@ int dlclose( void *handle )
      * objects.
      */
     if( ret )
-        global_object_rem( hModule );
+        global_rem( hModule );
     else
         save_err_ptr( handle );
 
@@ -243,13 +276,13 @@ void *dlsym( void *handle, const char *name )
 
         if( hModule == handle )
         {
-            int i;
+            global_object *pobject;
 
-            for( i = 0 ; i < MAX_OBJECTS ; i++ )
+            for( pobject = &first_object; pobject ; pobject = pobject->next )
             {
-                if( global_objects[i] != 0 )
+                if( pobject->hModule )
                 {
-                    symbol = GetProcAddress( global_objects[i], name );
+                    symbol = GetProcAddress( pobject->hModule, name );
                     if( symbol != NULL )
                         break;
                 }
