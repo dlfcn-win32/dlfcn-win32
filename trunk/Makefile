@@ -42,20 +42,20 @@ shared-install:
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	cp libdl.dll $(DESTDIR)$(PREFIX)/bin
 	$(STRIP) $(DESTDIR)$(PREFIX)/bin/libdl.dll
-	mkdir -p $(DESTDIR)$(PREFIX)/lib
-	cp libdl.dll.a $(DESTDIR)$(PREFIX)/lib
-	mkdir -p $(DESTDIR)$(PREFIX)/include
-	cp dlfcn.h $(DESTDIR)$(PREFIX)/include
+	mkdir -p $(DESTDIR)$(libdir)
+	cp libdl.dll.a $(DESTDIR)$(libdir)
+	mkdir -p $(DESTDIR)$(incdir)
+	cp dlfcn.h $(DESTDIR)$(incdir)
 
 static-install:
-	mkdir -p $(DESTDIR)$(PREFIX)/lib
-	cp libdl.a $(DESTDIR)$(PREFIX)/lib
-	mkdir -p $(DESTDIR)$(PREFIX)/include
-	cp dlfcn.h $(DESTDIR)$(PREFIX)/include
+	mkdir -p $(DESTDIR)$(libdir)
+	cp libdl.a $(DESTDIR)$(libdir)
+	mkdir -p $(DESTDIR)$(incdir)
+	cp dlfcn.h $(DESTDIR)$(incdir)
 
 lib-install:
-	mkdir -p $(DESTDIR)$(PREFIX)/lib
-	cp libdl.lib $(DESTDIR)$(PREFIX)/lib
+	mkdir -p $(DESTDIR)$(libdir)
+	cp libdl.lib $(DESTDIR)$(libdir)
 
 install: $(INSTALL)
 
