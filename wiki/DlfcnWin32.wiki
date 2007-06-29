@@ -1,0 +1,4 @@
+dlfcn-win32 isn't something important enough to have its own mailinglist.
+So, just discuss anything in this page.
+
+
