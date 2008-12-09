@@ -28,7 +28,7 @@ endif
 all: $(TARGETS)
 
 dlfcn.o:
-	$(CC) -o dlfcn.o -c dlfcn.c -O3 -fomit-frame-pointer
+	$(CC) -o dlfcn.o -c dlfcn.c -Wall -O3 -fomit-frame-pointer
 
 libdl.a: dlfcn.o
 	ar cru libdl.a dlfcn.o
