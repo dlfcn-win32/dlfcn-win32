@@ -157,7 +157,7 @@ static void save_err_str( const char *str )
     current_error = error_buffer;
 }
 
-static void save_err_ptr( const void *ptr )
+static void save_err_ptr_str( const void *ptr )
 {
     char ptr_buf[19]; /* 0x<pointer> up to 64 bits. */
 
@@ -189,7 +189,7 @@ void *dlopen( const char *file, int mode )
         hModule = GetModuleHandle( NULL );
 
         if( !hModule )
-            save_err_ptr( file );
+            save_err_ptr_str( file );
     }
     else
     {
@@ -250,7 +250,7 @@ int dlclose( void *handle )
     if( ret )
         global_rem( hModule );
     else
-        save_err_ptr( handle );
+        save_err_ptr_str( handle );
 
     /* dlclose's return value in inverted in relation to FreeLibrary's. */
     ret = !ret;
