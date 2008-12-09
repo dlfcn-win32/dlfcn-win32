@@ -105,7 +105,7 @@ static void global_rem( HMODULE hModule )
  * the limit.
  */
 static char error_buffer[65535];
-static int dlerror_was_last_call;
+static char *current_error;
 
 static int copy_string( char *dest, int dest_size, const char *src )
 {
@@ -153,6 +153,8 @@ static void save_err_str( const char *str )
         if( error_buffer[pos-2] == '\r' && error_buffer[pos-1] == '\n' )
             error_buffer[pos-2] = '\0';
     }
+
+    current_error = error_buffer;
 }
 
 static void save_err_ptr( const void *ptr )
@@ -169,7 +171,7 @@ void *dlopen( const char *file, int mode )
     HMODULE hModule;
     UINT uMode;
 
-    dlerror_was_last_call = 0;
+    current_error = NULL;
 
     /* Do not let Windows display the critical-error-handler message box */
     uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
@@ -238,7 +240,7 @@ int dlclose( void *handle )
     HMODULE hModule = (HMODULE) handle;
     BOOL ret;
 
-    dlerror_was_last_call = 0;
+    current_error = NULL;
 
     ret = FreeLibrary( hModule );
 
@@ -260,7 +262,7 @@ void *dlsym( void *handle, const char *name )
 {
     FARPROC symbol;
 
-    dlerror_was_last_call = 0;
+    current_error = NULL;
 
     symbol = GetProcAddress( handle, name );
 
@@ -300,13 +302,12 @@ void *dlsym( void *handle, const char *name )
 
 char *dlerror( void )
 {
+    char *error_pointer = current_error;
+
     /* POSIX says that invoking dlerror( ) a second time, immediately following
      * a prior invocation, shall result in NULL being returned.
      */
-    if( dlerror_was_last_call )
-        return NULL;
+    current_error = NULL;
 
-    dlerror_was_last_call = 1;
-
-    return error_buffer;
+    return error_pointer;
 }
