@@ -19,11 +19,6 @@ ifeq ($(BUILD_MSVC),yes)
 else
 	LIBCMD=echo ignoring lib
 endif
-ifeq ($(DO_STRIP),yes)
-	STRIP=strip
-else
-	STRIP=echo ignoring strip
-endif
 
 all: $(TARGETS)
 
