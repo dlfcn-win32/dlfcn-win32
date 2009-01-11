@@ -14,10 +14,7 @@ ifeq ($(BUILD_STATIC),yes)
 endif
 ifeq ($(BUILD_MSVC),yes)
 	SHFLAGS+=-Wl,--output-def,libdl.def
-	LIBCMD=lib
 	INSTALL+=lib-install
-else
-	LIBCMD=echo ignoring lib
 endif
 
 all: $(TARGETS)
