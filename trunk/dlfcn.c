@@ -75,6 +75,7 @@ static void global_add( HMODULE hModule )
         return;
 
     pobject->next = nobject;
+    nobject->next = NULL;
     nobject->previous = pobject;
     nobject->hModule = hModule;
 }
