@@ -43,7 +43,6 @@ show_help(){
   echo "  --enable-strip            strip shared library [yes]"
   echo
   echo "  --cc=CC                   use C compiler CC [$cc]"
-  echo "  --make=MAKE               use specified make [$make]"
   exit 1
 }
 
@@ -93,9 +92,6 @@ for opt do
     ;;
     --cc=*)
         cc="$optval"
-    ;;
-    --make=*)
-        make="$optval"
     ;;
     --enable-?*|--disable-?*)
         eval `echo "$opt" | sed 's/--/action=/;s/-/ option=/;s/-/_/g'`
