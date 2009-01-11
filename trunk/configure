@@ -121,7 +121,7 @@ void function(void)
 EOF
 $cc -shared -o /tmp/test.dll /tmp/test.c
 
-test "$?" = !0 && {
+test "$?" != 0 && {
     echo "$cc could not create shared file with Windows API functions.";
     echo "Make sure your MinGW system is working properly.";
     exit 1;
