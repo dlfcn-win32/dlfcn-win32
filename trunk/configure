@@ -35,8 +35,8 @@ show_help(){
   echo
   echo "  --help                    print this message"
   echo "  --prefix=PREFIX           install in PREFIX [$prefix]"
-  echo "  --libdir=DIR              install libs in DIR [$prefix/lib]"
-  echo "  --incdir=DIR              install includes in DIR [$prefix/include]"
+  echo "  --libdir=DIR              install libs in DIR [$libdir]"
+  echo "  --incdir=DIR              install includes in DIR [$incdir]"
   echo "  --enable-shared           build shared libraries [no]"
   echo "  --enable-static           build static libraries [yes]"
   echo "  --enable-msvc             create msvc-compatible import lib [auto]"
