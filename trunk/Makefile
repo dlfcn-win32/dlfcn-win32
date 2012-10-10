@@ -31,9 +31,9 @@ libdl.dll: dlfcn.o
 	$(LIBCMD) /machine:i386 /def:libdl.def
 
 shared-install:
-	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	cp libdl.dll $(DESTDIR)$(PREFIX)/bin
-	$(STRIP) $(DESTDIR)$(PREFIX)/bin/libdl.dll
+	mkdir -p $(DESTDIR)$(prefix)/bin
+	cp libdl.dll $(DESTDIR)$(prefix)/bin
+	$(STRIP) $(DESTDIR)$(prefix)/bin/libdl.dll
 	mkdir -p $(DESTDIR)$(libdir)
 	cp libdl.dll.a $(DESTDIR)$(libdir)
 	mkdir -p $(DESTDIR)$(incdir)
