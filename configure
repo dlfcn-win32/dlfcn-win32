@@ -54,8 +54,8 @@ die_unknown(){
 }
 
 prefix="/mingw"
-libdir="${prefix}/lib"
-incdir="${prefix}/include"
+libdir='${prefix}/lib'
+incdir='${prefix}/include'
 ar="ar"
 cc_default="gcc"
 ranlib="ranlib"
