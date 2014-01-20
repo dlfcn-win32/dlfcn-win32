@@ -186,7 +186,7 @@ echo "ranlib: $ranlib"
 echo "strip:  $strip"
 echo "static: $static"
 echo "shared: $shared"
-enabled shared && {
+if enabled shared; then
     echo "msvc:   $msvc";
     echo "strip:  $stripping";
-}
+fi
