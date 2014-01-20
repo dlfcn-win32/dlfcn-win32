@@ -291,8 +291,6 @@ void *dlsym( void *handle, const char *name )
                 }
             }
         }
-
-        CloseHandle( hModule );
     }
 
     if( symbol == NULL )
