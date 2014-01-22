@@ -20,6 +20,13 @@
 #include <stdio.h>
 #include "dlfcn.h"
 
+/* If these dlclose's fails, we don't care as the handles are going to be
+   closed eventually when the program ends. */
+#define CLOSE_LIB    dlclose( library );
+#define CLOSE_GLOBAL dlclose( global  );
+
+#define RETURN_ERROR return 1;
+
 /* This is what this test does:
  * - Open library with RTLD_GLOBAL
  * - Get global object
@@ -61,6 +68,8 @@ int main()
     {
         error = dlerror( );
         printf( "Could not open global handle: %s\n", error ? error : "" );
+        CLOSE_LIB
+        RETURN_ERROR
     }
     else
         printf( "Got global handle: %p\n", global );
@@ -71,6 +80,9 @@ int main()
         error = dlerror( );
         printf( "Could not get symbol from library handle: %s\n",
                 error ? error : "" );
+        CLOSE_LIB
+        CLOSE_GLOBAL
+        RETURN_ERROR
     }
     else
         printf( "Got symbol from library handle: %p\n", function );
@@ -84,6 +96,9 @@ int main()
         error = dlerror( );
         printf( "Could not get symbol from global handle: %s\n",
                 error ? error : "" );
+        CLOSE_LIB
+        CLOSE_GLOBAL
+        RETURN_ERROR
     }
     else
         printf( "Got symbol from global handle: %p\n", function );
@@ -105,6 +120,9 @@ int main()
     {
         error = dlerror( );
         printf( "Could not open library locally: %s\n", error ? error : "" );
+        CLOSE_LIB
+        CLOSE_GLOBAL
+        RETURN_ERROR
     }
     else
         printf( "Opened library locally: %p\n", library );
@@ -115,6 +133,9 @@ int main()
         error = dlerror( );
         printf( "Could not get symbol from library handle: %s\n",
                 error ? error : "" );
+        CLOSE_LIB
+        CLOSE_GLOBAL
+        RETURN_ERROR
     }
     else
         printf( "Got symbol from library handle: %p\n", function );
@@ -128,6 +149,9 @@ int main()
         error = dlerror( );
         printf( "Could not get symbol from global handle: %s\n",
                 error ? error : "" );
+        CLOSE_LIB
+        CLOSE_GLOBAL
+        RETURN_ERROR
     }
     else
         printf( "Got symbol from global handle: %p\n", function );
@@ -140,6 +164,8 @@ int main()
     {
         error = dlerror( );
         printf( "Could not close library: %s\n", error ? error : "" );
+        CLOSE_GLOBAL
+        RETURN_ERROR
     }
     else
         printf( "Closed library.\n" );
@@ -149,6 +175,7 @@ int main()
     {
         error = dlerror( );
         printf( "Could not close global handle: %s\n", error ? error : "" );
+        RETURN_ERROR
     }
     else
         printf( "Closed global handle.\n" );
