@@ -144,17 +144,17 @@ int main()
         function( );
 
     function = dlsym( global, "function" );
-    if( !function )
+    if( function )
     {
         error = dlerror( );
-        printf( "Could not get symbol from global handle: %s\n",
+        printf( "Got local symbol from global handle: %s\n",
                 error ? error : "" );
         CLOSE_LIB
         CLOSE_GLOBAL
         RETURN_ERROR
     }
     else
-        printf( "Got symbol from global handle: %p\n", function );
+        printf( "Did not get local symbol from global handle: %p\n", function );
 
     if( function )
         function( );
