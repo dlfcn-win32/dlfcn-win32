@@ -113,7 +113,7 @@ static int copy_string( char *dest, int dest_size, const char *src )
     int i = 0;
 
     /* gcc should optimize this out */
-    if( !src && !dest )
+    if( !src || !dest )
         return 0;
 
     for( i = 0 ; i < dest_size-1 ; i++ )
