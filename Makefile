@@ -4,18 +4,18 @@
 include config.mak
 
 ifeq ($(BUILD_SHARED),yes)
-	TARGETS+=libdl.dll libdl.dll.a
-	SHFLAGS+=-Wl,--out-implib,libdl.dll.a
-	INSTALL+=shared-install
+	TARGETS += libdl.dll libdl.dll.a
+	SHFLAGS += -Wl,--out-implib,libdl.dll.a
+	INSTALL += shared-install
 endif
 ifeq ($(BUILD_STATIC),yes)
-	TARGETS+=libdl.a
-	INSTALL+=static-install
+	TARGETS += libdl.a
+	INSTALL += static-install
 endif
 ifeq ($(BUILD_MSVC),yes)
-    TARGETS+=libdl.lib
-	SHFLAGS+=-Wl,--output-def,libdl.def
-	INSTALL+=lib-install
+    TARGETS += libdl.lib
+	SHFLAGS += -Wl,--output-def,libdl.def
+	INSTALL += lib-install
 endif
 
 LIB_OBJS := dlfcn.o
