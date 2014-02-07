@@ -4,7 +4,7 @@
 include config.mak
 
 ifeq ($(BUILD_SHARED),yes)
-	TARGETS+=libdl.dll
+	TARGETS+=libdl.dll libdl.dll.a
 	SHFLAGS+=-Wl,--out-implib,libdl.dll.a
 	INSTALL+=shared-install
 endif
@@ -13,49 +13,55 @@ ifeq ($(BUILD_STATIC),yes)
 	INSTALL+=static-install
 endif
 ifeq ($(BUILD_MSVC),yes)
+    TARGETS+=libdl.lib
 	SHFLAGS+=-Wl,--output-def,libdl.def
 	INSTALL+=lib-install
 endif
 
+LIB_OBJS := dlfcn.o
+HEADERS  := dlfcn.h
+
 all: $(TARGETS)
 
-dlfcn.o:
-	$(CC) -o dlfcn.o -c dlfcn.c -Wall -O3 -fomit-frame-pointer
+%.o: %.c
+	$(CC) -o $@ -c $< -Wall -O3 -fomit-frame-pointer
 
-libdl.a: dlfcn.o
-	$(AR) cru libdl.a dlfcn.o
+libdl.a: $(LIB_OBJS)
+	$(AR) cru $@ $^
 	$(RANLIB) libdl.a
 
-libdl.dll: dlfcn.o
-	$(CC) $(SHFLAGS) -shared -o libdl.dll dlfcn.o
+libdl.dll libdl.dll.a: $(LIB_OBJS)
+	$(CC) $(SHFLAGS) -shared -o $@ $^
+
+libdl.lib: libdl.dll
 	$(LIBCMD) /machine:i386 /def:libdl.def
 
-shared-install:
+include-install: $(HEADERS)
+	mkdir -p $(DESTDIR)$(incdir)
+	install -m 644 $^ "$(DESTDIR)$(incdir)"
+
+shared-install: include-install
 	mkdir -p $(DESTDIR)$(prefix)/bin
 	cp libdl.dll $(DESTDIR)$(prefix)/bin
 	$(STRIP) $(DESTDIR)$(prefix)/bin/libdl.dll
 	mkdir -p $(DESTDIR)$(libdir)
 	cp libdl.dll.a $(DESTDIR)$(libdir)
-	mkdir -p $(DESTDIR)$(incdir)
-	cp dlfcn.h $(DESTDIR)$(incdir)
 
-static-install:
+static-install: include-install
 	mkdir -p $(DESTDIR)$(libdir)
 	cp libdl.a $(DESTDIR)$(libdir)
-	mkdir -p $(DESTDIR)$(incdir)
-	cp dlfcn.h $(DESTDIR)$(incdir)
 
-lib-install:
+lib-install: $(LIBS)
 	mkdir -p $(DESTDIR)$(libdir)
 	cp libdl.lib $(DESTDIR)$(libdir)
 
 install: $(INSTALL)
 
-test.exe:
-	$(CC) -o test.exe test.c -L. -ldl
+test.exe: test.o $(TARGETS)
+	$(CC) -o $@ $< -L. -ldl
 
-testdll.dll:
-	$(CC) -shared -o testdll.dll testdll.c
+testdll.dll: testdll.c
+	$(CC) -shared -o $@ $^
 
 test: $(TARGETS) test.exe testdll.dll
 	test.exe
