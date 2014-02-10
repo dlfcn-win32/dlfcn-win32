@@ -49,7 +49,6 @@
  * - Get symbol from library through library object <- works
  * - Run function if it worked
  * - Get symbol from library through global object  <- fails
- * - Run function if it worked
  * - Open library again (without closing it first) with RTLD_GLOBAL
  * - Get symbol from library through global object  <- works
  * - Close library
@@ -166,6 +165,33 @@ int main()
     }
     else
         printf( "SUCCESS\tDid not get local symbol from global handle.\n" );
+
+    library = dlopen( "testdll.dll", RTLD_GLOBAL );
+    if( !library )
+    {
+        error = dlerror( );
+        printf( "ERROR\tCould not open library globally without closing it first: %s\n", error ? error : "" );
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
+    else
+        printf( "SUCCESS\tOpened library globally without closing it first: %p\n", library );
+
+    function = dlsym( global, "function" );
+    if( !function )
+    {
+        error = dlerror( );
+        printf( "ERROR\tCould not get symbol from global handle: %s\n",
+                error ? error : "" );
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
+    else
+        printf( "SUCCESS\tGot symbol from global handle: %p\n", function );
+
+    RUNFUNC;
 
     ret = dlclose( library );
     if( ret )
