@@ -42,15 +42,20 @@
  * - Get global object
  * - Get symbol from library through library object <- works
  * - Run function if it worked
+ * - Get nonexistent symbol from library through library object <- fails
  * - Get symbol from library through global object  <- works
  * - Run function if it worked
+ * - Get nonexistent symbol from library through global object <- fails
  * - Close library
  * - Open library with RTLD_LOCAL
  * - Get symbol from library through library object <- works
  * - Run function if it worked
- * - Get symbol from library through global object  <- fails
+ * - Get nonexistent symbol from library through library object <- fails
+ * - Get local symbol from library through global object  <- fails
+ * - Get nonexistent local symbol from library through global object <- fails
  * - Open library again (without closing it first) with RTLD_GLOBAL
  * - Get symbol from library through global object  <- works
+ * - Get nonexistent symbol from library through global object <- fails
  * - Close library
  * - Close global object
  *
@@ -63,6 +68,7 @@ int main()
     void *library;
     char *error;
     int (*function)( void );
+    int (*nonexistentfunction)( void );
     int ret;
 
     library = dlopen( "testdll.dll", RTLD_GLOBAL );
@@ -101,6 +107,21 @@ int main()
 
     RUNFUNC;
 
+    nonexistentfunction = dlsym( library, "nonexistentfunction" );
+    if( nonexistentfunction )
+    {
+        error = dlerror( );
+        printf( "ERROR\tGot nonexistent symbol from library handle: %p\n", nonexistentfunction );
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
+    else {
+        error = dlerror( );
+        printf( "SUCCESS\tCould not get nonexistent symbol from library handle: %s\n",
+                error ? error : "" );
+    }
+
     function = dlsym( global, "function" );
     if( !function )
     {
@@ -115,6 +136,21 @@ int main()
         printf( "SUCCESS\tGot symbol from global handle: %p\n", function );
 
     RUNFUNC;
+
+    nonexistentfunction = dlsym( global, "nonexistentfunction" );
+    if( nonexistentfunction )
+    {
+        error = dlerror( );
+        printf( "ERROR\tGot nonexistent symbol from global handle: %p\n", nonexistentfunction );
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
+    else {
+        error = dlerror( );
+        printf( "SUCCESS\tCould not get nonexistent symbol from global handle: %s\n",
+                error ? error : "" );
+    }
 
     ret = dlclose( library );
     if( ret )
@@ -153,6 +189,21 @@ int main()
 
     RUNFUNC;
 
+    nonexistentfunction = dlsym( library, "nonexistentfunction" );
+    if( nonexistentfunction )
+    {
+        error = dlerror( );
+        printf( "ERROR\tGot nonexistent symbol from library handle: %p\n", nonexistentfunction );
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
+    else {
+        error = dlerror( );
+        printf( "SUCCESS\tCould not get nonexistent symbol from library handle: %s\n",
+                error ? error : "" );
+    }
+
     function = dlsym( global, "function" );
     if( function )
     {
@@ -165,6 +216,21 @@ int main()
     }
     else
         printf( "SUCCESS\tDid not get local symbol from global handle.\n" );
+
+    nonexistentfunction = dlsym( global, "nonexistentfunction" );
+    if( nonexistentfunction )
+    {
+        error = dlerror( );
+        printf( "ERROR\tGot nonexistent local symbol from global handle: %p\n", nonexistentfunction );
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
+    else {
+        error = dlerror( );
+        printf( "SUCCESS\tDid not get nonexistent local symbol from global handle: %s\n",
+                error ? error : "" );
+    }
 
     library = dlopen( "testdll.dll", RTLD_GLOBAL );
     if( !library )
@@ -192,6 +258,21 @@ int main()
         printf( "SUCCESS\tGot symbol from global handle: %p\n", function );
 
     RUNFUNC;
+
+    nonexistentfunction = dlsym( global, "nonexistentfunction" );
+    if( nonexistentfunction )
+    {
+        error = dlerror( );
+        printf( "ERROR\tGot nonexistent symbol from global handle: %p\n", nonexistentfunction );
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
+    else {
+        error = dlerror( );
+        printf( "SUCCESS\tCould not get nonexistent symbol from global handle: %s\n",
+                error ? error : "" );
+    }
 
     ret = dlclose( library );
     if( ret )
