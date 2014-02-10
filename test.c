@@ -59,34 +59,34 @@ int main()
     if( !library )
     {
         error = dlerror( );
-        printf( "Could not open library globally: %s\n", error ? error : "" );
+        printf( "ERROR\tCould not open library globally: %s\n", error ? error : "" );
     }
     else
-        printf( "Opened library globally: %p\n", library );
+        printf( "SUCCESS\tOpened library globally: %p\n", library );
 
     global = dlopen( 0, RTLD_GLOBAL );
     if( !global )
     {
         error = dlerror( );
-        printf( "Could not open global handle: %s\n", error ? error : "" );
+        printf( "ERROR\tCould not open global handle: %s\n", error ? error : "" );
         CLOSE_LIB
         RETURN_ERROR
     }
     else
-        printf( "Got global handle: %p\n", global );
+        printf( "SUCCESS\tGot global handle: %p\n", global );
 
     function = dlsym( library, "function" );
     if( !function )
     {
         error = dlerror( );
-        printf( "Could not get symbol from library handle: %s\n",
+        printf( "ERROR\tCould not get symbol from library handle: %s\n",
                 error ? error : "" );
         CLOSE_LIB
         CLOSE_GLOBAL
         RETURN_ERROR
     }
     else
-        printf( "Got symbol from library handle: %p\n", function );
+        printf( "SUCCESS\tGot symbol from library handle: %p\n", function );
 
     if( function )
         function( );
@@ -95,14 +95,14 @@ int main()
     if( !function )
     {
         error = dlerror( );
-        printf( "Could not get symbol from global handle: %s\n",
+        printf( "ERROR\tCould not get symbol from global handle: %s\n",
                 error ? error : "" );
         CLOSE_LIB
         CLOSE_GLOBAL
         RETURN_ERROR
     }
     else
-        printf( "Got symbol from global handle: %p\n", function );
+        printf( "SUCCESS\tGot symbol from global handle: %p\n", function );
 
     if( function )
         function( );
@@ -111,35 +111,36 @@ int main()
     if( ret )
     {
         error = dlerror( );
-        printf( "Could not close library: %s\n", error ? error : "" );
+        printf( "ERROR\tCould not close library: %s\n", error ? error : "" );
+        RETURN_ERROR
     }
     else
-        printf( "Closed library.\n" );
+        printf( "SUCCESS\tClosed library.\n" );
 
     library = dlopen( "testdll.dll", RTLD_LOCAL );
     if( !library )
     {
         error = dlerror( );
-        printf( "Could not open library locally: %s\n", error ? error : "" );
+        printf( "ERROR\tCould not open library locally: %s\n", error ? error : "" );
         CLOSE_LIB
         CLOSE_GLOBAL
         RETURN_ERROR
     }
     else
-        printf( "Opened library locally: %p\n", library );
+        printf( "SUCCESS\tOpened library locally: %p\n", library );
 
     function = dlsym( library, "function" );
     if( !function )
     {
         error = dlerror( );
-        printf( "Could not get symbol from library handle: %s\n",
+        printf( "ERROR\tCould not get symbol from library handle: %s\n",
                 error ? error : "" );
         CLOSE_LIB
         CLOSE_GLOBAL
         RETURN_ERROR
     }
     else
-        printf( "Got symbol from library handle: %p\n", function );
+        printf( "SUCCESS\tGot symbol from library handle: %p\n", function );
 
     if( function )
         function( );
@@ -148,14 +149,14 @@ int main()
     if( function )
     {
         error = dlerror( );
-        printf( "Got local symbol from global handle: %s\n",
+        printf( "ERROR\tGot local symbol from global handle: %s\n",
                 error ? error : "" );
         CLOSE_LIB
         CLOSE_GLOBAL
         RETURN_ERROR
     }
     else
-        printf( "Did not get local symbol from global handle: %p\n", function );
+        printf( "SUCCESS\tDid not get local symbol from global handle: %p\n", function );
 
     if( function )
         function( );
@@ -164,22 +165,22 @@ int main()
     if( ret )
     {
         error = dlerror( );
-        printf( "Could not close library: %s\n", error ? error : "" );
+        printf( "ERROR\tCould not close library: %s\n", error ? error : "" );
         CLOSE_GLOBAL
         RETURN_ERROR
     }
     else
-        printf( "Closed library.\n" );
+        printf( "SUCCESS\tClosed library.\n" );
 
     ret = dlclose( global );
     if( ret )
     {
         error = dlerror( );
-        printf( "Could not close global handle: %s\n", error ? error : "" );
+        printf( "ERROR\tCould not close global handle: %s\n", error ? error : "" );
         RETURN_ERROR
     }
     else
-        printf( "Closed global handle.\n" );
+        printf( "SUCCESS\tClosed global handle.\n" );
 
     return 0;
 }
