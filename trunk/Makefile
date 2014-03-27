@@ -64,7 +64,7 @@ testdll.dll: testdll.c
 	$(CC) -shared -o $@ $^
 
 test: $(TARGETS) test.exe testdll.dll
-	test.exe
+	$(WINE) test.exe
 
 clean::
 	rm -f dlfcn.o libdl.dll libdl.a libdl.def libdl.dll.a libdl.lib libdl.exp test.exe testdll.dll
