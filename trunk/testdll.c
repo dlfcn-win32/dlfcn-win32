@@ -19,7 +19,13 @@
 
 #include <stdio.h>
 
-int function( void )
+#if defined(_WIN32)
+#define EXPORT __declspec(dllexport)
+#else
+#define EXPORT
+#endif
+
+EXPORT int function( void )
 {
     printf( "Hello, world!\n" );
     return 0;
