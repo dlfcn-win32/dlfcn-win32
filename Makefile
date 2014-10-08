@@ -2,7 +2,8 @@
 # dlfcn-win32 Makefile
 #
 include config.mak
-CFLAGS=-Wall -O3 -fomit-frame-pointer
+CFLAGS = -Wall -O3 -fomit-frame-pointer
+LIBS  += -lpsapi
 
 ifeq ($(BUILD_SHARED),yes)
 	TARGETS += libdl.dll
@@ -33,7 +34,7 @@ libdl.a: $(LIB_OBJS)
 	$(RANLIB) libdl.a
 
 libdl.dll: $(LIB_OBJS)
-	$(CC) $(SHFLAGS) -shared -o $@ $^
+	$(CC) $(SHFLAGS) -shared -o $@ $^ $(LIBS)
 
 libdl.lib: libdl.dll
 	$(LIBCMD) /machine:i386 /def:libdl.def
@@ -60,7 +61,7 @@ lib-install: $(LIBS)
 install: $(INSTALL)
 
 test.exe: test.o $(TARGETS)
-	$(CC) -o $@ $< -L. -ldl
+	$(CC) -o $@ $< -L. -ldl $(LIBS)
 
 testdll.dll: testdll.c
 	$(CC) -shared -o $@ $^

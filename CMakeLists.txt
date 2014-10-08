@@ -18,6 +18,7 @@ if (BUILD_SHARED_LIBS)
 endif (BUILD_SHARED_LIBS)
 
 add_library(dl ${sources})
+target_link_libraries(dl psapi)
 
 install (TARGETS dl RUNTIME DESTINATION bin
                     LIBRARY DESTINATION lib${LIB_SUFFIX}
