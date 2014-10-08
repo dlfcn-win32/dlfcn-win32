@@ -26,7 +26,8 @@
 #define CLOSE_LIB    dlclose( library )
 #define CLOSE_GLOBAL dlclose( global  )
 
-#define RETURN_ERROR return 1
+#define RETURN_ERROR printf("From line %d\n", __LINE__); return 1
+
 #define RUNFUNC do { \
                     ret = function (); \
                     if( ret != 0) {    \
@@ -68,6 +69,7 @@ int main()
     void *library;
     char *error;
     int (*function)( void );
+    int (*printf_local)( const char * );
     int (*nonexistentfunction)( void );
     int ret;
 
@@ -91,6 +93,20 @@ int main()
     }
     else
         printf( "SUCCESS\tGot global handle: %p\n", global );
+
+    printf_local = dlsym(global, "printf");
+    if (!printf_local)
+    {
+        error = dlerror();
+        printf("ERROR\tCould not get symbol from global handle: %s\n",
+            error ? error : "");
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
+    else
+        printf("SUCCESS\tGot symbol from global handle: %p\n", printf_local);
+    printf_local("Hello world from local printf!\n");
 
     function = dlsym( library, "function" );
     if( !function )
@@ -273,6 +289,19 @@ int main()
         printf( "SUCCESS\tCould not get nonexistent symbol from global handle: %s\n",
                 error ? error : "" );
     }
+
+	function = dlsym(global, "printf");
+	if (!function)
+	{
+		error = dlerror();
+		printf("ERROR\tCould not get symbol from global handle: %s\n",
+			error ? error : "");
+		CLOSE_LIB;
+		CLOSE_GLOBAL;
+		RETURN_ERROR;
+	}
+	else
+		printf("SUCCESS\tGot symbol from global handle: %p\n", function);
 
     ret = dlclose( library );
     if( ret )
