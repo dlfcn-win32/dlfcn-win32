@@ -232,4 +232,4 @@ if enabled shared; then
 fi
 echo "wine:   $wine $winecmd"
 
-echo "Run `make -f Makefile2` to build."
+echo "Run \`make -f Makefile2\` to build."

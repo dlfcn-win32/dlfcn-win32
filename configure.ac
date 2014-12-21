@@ -9,6 +9,8 @@ AC_CANONICAL_BUILD
 AM_INIT_AUTOMAKE([foreign])
 LT_INIT
 
+# Set the flags here to make libtool catch the flags
+CFLAGS='-Wall -O3 -fomit-frame-pointer'
 AC_PROG_CC
 
 AC_MSG_CHECKING([windows.h and win32 API])
@@ -26,6 +28,15 @@ AC_LINK_IFELSE([
 ])
 
 MINGW_AC_MSVC_IMPORT_LIBS([LIBDL_MSVC_LIB], [libdl.lib])
+AC_SUBST([LIBDL_MSVC_LIB])
+
+test -n "${LIBDL_MSVC_LIB}" && \
+    GEN_DEF="-Wl,--output-def,libdl.def" && \
+    EXTRA_INSTALL="install-msvc-lib"
+AC_SUBST([GEN_DEF])
+AC_SUBST([EXTRA_INSTALL])
+
+test -n 
 
 AC_CONFIG_FILES(Makefile)
 AC_OUTPUT

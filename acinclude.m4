@@ -28,6 +28,7 @@
 # - MINGW_AC_MSVC_IMPORT_LIBS:
 #   - Renamed the option to --enable-msvc for compatibility with the old
 #     configure script.
+#   - Error if shared lib is not enabled.
 # - Cosmetics:
 #   - Use '' instead of `'
 
@@ -48,7 +49,10 @@ AC_DEFUN([MINGW_AC_MSVC_IMPORT_LIBS],
   [enable building of MSVC compatible import libraries]),[],
   [enable_msvc=no])
  AC_CHECK_TOOL([MSVCLIB], [lib])
- if test "x$enable_msvc" = xyes && test -n "$MSVCLIB"
+
+ if test "x$enable_msvc" = xyes && test "x$enable_shared" != xyes
+ then AC_MSG_ERROR([MSVC import lib requested but shared lib not enabled.])
+ elif test "x$enable_msvc" = xyes && test -n "$MSVCLIB"
  then $1="$2"
  elif test "x$enable_msvc" = xyes
  then AC_MSG_WARN([no MSVC compatible 'lib' program found in \$PATH
