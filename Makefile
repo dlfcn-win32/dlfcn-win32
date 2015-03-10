@@ -4,7 +4,7 @@
 include config.mak
 
 ifeq ($(BUILD_SHARED),yes)
-	TARGETS += libdl.dll libdl.dll.a
+	TARGETS += libdl.dll
 	SHFLAGS += -Wl,--out-implib,libdl.dll.a
 	INSTALL += shared-install
 endif
@@ -30,7 +30,7 @@ libdl.a: $(LIB_OBJS)
 	$(AR) cru $@ $^
 	$(RANLIB) libdl.a
 
-libdl.dll libdl.dll.a: $(LIB_OBJS)
+libdl.dll: $(LIB_OBJS)
 	$(CC) $(SHFLAGS) -shared -o $@ $^
 
 libdl.lib: libdl.dll
