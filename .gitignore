@@ -50,8 +50,10 @@ install_manifest.txt
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
+[Dd]ebugStatic/
 [Rr]elease/
 [Rr]eleases/
+[Rr]eleaseStatic/
 x64/
 x86/
 build/
