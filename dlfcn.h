@@ -24,6 +24,12 @@
 extern "C" {
 #endif
 
+#if defined(DLFCN_WIN32_EXPORTS)
+#   define DLFCN_EXPORT __declspec(dllexport)
+#elif defined (_MSC_VER) // FIXME: MinGW support
+#   define DLFCN_EXPORT __declspec(dllimport)
+#endif
+
 /* POSIX says these are implementation-defined.
  * To simplify use with Windows API, we treat them the same way.
  */
@@ -41,10 +47,10 @@ extern "C" {
 #define RTLD_DEFAULT    0
 #define RTLD_NEXT       0
 
-void *dlopen ( const char *file, int mode );
-int   dlclose( void *handle );
-void *dlsym  ( void *handle, const char *name );
-char *dlerror( void );
+DLFCN_EXPORT void *dlopen ( const char *file, int mode );
+DLFCN_EXPORT int   dlclose(void *handle);
+DLFCN_EXPORT void *dlsym(void *handle, const char *name);
+DLFCN_EXPORT char *dlerror(void);
 
 #ifdef __cplusplus
 }

@@ -20,6 +20,7 @@
 #include <windows.h>
 #include <stdio.h>
 
+#define DLFCN_WIN32_EXPORTS
 #include "dlfcn.h"
 
 /* Note:
