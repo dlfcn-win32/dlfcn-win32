@@ -162,7 +162,7 @@ static void save_err_ptr_str( const void *ptr )
 {
     char ptr_buf[19]; /* 0x<pointer> up to 64 bits. */
 
-    sprintf( ptr_buf, "0x%p", ptr );
+    sprintf_s( ptr_buf, 19, "0x%p", ptr );
 
     save_err_str( ptr_buf );
 }
