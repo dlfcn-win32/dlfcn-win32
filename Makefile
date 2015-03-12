@@ -2,6 +2,7 @@
 # dlfcn-win32 Makefile
 #
 include config.mak
+CFLAGS=-Wall -O3 -fomit-frame-pointer
 
 ifeq ($(BUILD_SHARED),yes)
 	TARGETS += libdl.dll libdl.dll.a
@@ -24,7 +25,7 @@ HEADERS  := dlfcn.h
 all: $(TARGETS)
 
 %.o: %.c
-	$(CC) -o $@ -c $< -Wall -O3 -fomit-frame-pointer
+	$(CC) -o $@ -c $< $(CFLAGS)
 
 libdl.a: $(LIB_OBJS)
 	$(AR) cru $@ $^
