@@ -26,8 +26,8 @@ extern "C" {
 
 #if defined(DLFCN_WIN32_EXPORTS)
 #   define DLFCN_EXPORT __declspec(dllexport)
-#elif defined (_MSC_VER) // FIXME: MinGW support
-#   define DLFCN_EXPORT __declspec(dllimport)
+#else
+#   define DLFCN_EXPORT
 #endif
 
 /* POSIX says these are implementation-defined.
