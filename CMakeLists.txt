@@ -1,6 +1,10 @@
-project (dlfcn C)
-
 cmake_minimum_required(VERSION 2.8)
+
+if (NOT DEFINED CMAKE_BUILD_TYPE)
+  set (CMAKE_BUILD_TYPE Release CACHE STRING "Build type")
+endif ()
+
+project (dlfcn C)
 
 option(BUILD_SHARED_LIBS "shared/static libs" ON) 
 option(USE_WINE "use wine for test" ON)
