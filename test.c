@@ -18,6 +18,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#ifdef _DEBUG
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif
 #include <stdio.h>
 #include "dlfcn.h"
 
@@ -70,6 +75,15 @@ int main()
     int (*function)( void );
     int (*nonexistentfunction)( void );
     int ret;
+
+#ifdef _DEBUG
+    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+    _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDOUT);
+    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
+#endif
 
     library = dlopen( "testdll.dll", RTLD_GLOBAL );
     if( !library )
@@ -295,5 +309,8 @@ int main()
     else
         printf( "SUCCESS\tClosed global handle.\n" );
 
+#ifdef _DEBUG
+    _CrtDumpMemoryLeaks();
+#endif
     return 0;
 }
