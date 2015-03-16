@@ -22,7 +22,9 @@
 #include <stdlib.h>
 #include <crtdbg.h>
 #endif
+#define PSAPI_VERSION 1
 #include <windows.h>
+#include <psapi.h>
 #include <stdio.h>
 
 #define DLFCN_WIN32_EXPORTS
@@ -40,23 +42,25 @@ typedef struct global_object {
 } global_object;
 
 static global_object first_object;
+static global_object first_automatic_object;
+static int auto_ref_count = 0;
 
 /* These functions implement a double linked list for the global objects. */
-static global_object *global_search( HMODULE hModule )
+static global_object *global_search( global_object *start, HMODULE hModule )
 {
     global_object *pobject;
 
     if( hModule == NULL )
         return NULL;
 
-    for( pobject = &first_object; pobject ; pobject = pobject->next )
+    for( pobject = start; pobject; pobject = pobject->next )
         if( pobject->hModule == hModule )
             return pobject;
 
     return NULL;
 }
 
-static void global_add( HMODULE hModule )
+static void global_add( global_object *start, HMODULE hModule )
 {
     global_object *pobject;
     global_object *nobject;
@@ -64,15 +68,22 @@ static void global_add( HMODULE hModule )
     if( hModule == NULL )
         return;
 
-    pobject = global_search( hModule );
+    pobject = global_search( start, hModule );
 
     /* Do not add object again if it's already on the list */
     if( pobject )
         return;
 
-    for( pobject = &first_object; pobject->next ; pobject = pobject->next );
+    if( start == &first_automatic_object )
+    {
+        pobject = global_search( &first_object, hModule );
+        if( pobject )
+            return;
+    }
 
-    nobject = malloc( sizeof(global_object) );
+    for( pobject = start; pobject->next; pobject = pobject->next );
+
+    nobject = malloc( sizeof( global_object ) );
 
     /* Should this be enough to fail global_add, and therefore also fail
      * dlopen?
@@ -86,14 +97,14 @@ static void global_add( HMODULE hModule )
     nobject->hModule = hModule;
 }
 
-static void global_rem( HMODULE hModule )
+static void global_rem( global_object *start, HMODULE hModule )
 {
     global_object *pobject;
 
     if( hModule == NULL )
         return;
 
-    pobject = global_search( hModule );
+    pobject = global_search( start, hModule );
 
     if( !pobject )
         return;
@@ -185,18 +196,40 @@ void *dlopen( const char *file, int mode )
 
     if( file == 0 )
     {
+        HMODULE hAddtnlMods[1024]; // Already loaded modules
+        HANDLE hCurrentProc = GetCurrentProcess( );
+        DWORD cbNeeded;
+
         /* POSIX says that if the value of file is 0, a handle on a global
          * symbol object must be provided. That object must be able to access
          * all symbols from the original program file, and any objects loaded
          * with the RTLD_GLOBAL flag.
          * The return value from GetModuleHandle( ) allows us to retrieve
          * symbols only from the original program file. For objects loaded with
-         * the RTLD_GLOBAL flag, we create our own list later on.
+         * the RTLD_GLOBAL flag, we create our own list later on. For objects
+         * outside of the program file but already loaded (e.g. linked DLLs)
+         * they are added below.
          */
         hModule = GetModuleHandle( NULL );
 
         if( !hModule )
             save_err_ptr_str( file );
+
+
+        /* GetModuleHandle( NULL ) only returns the current program file. So
+	 * if we want to get ALL loaded module including those in linked DLLs,
+	 * we have to use EnumProcessModules( ).
+         */
+        if( EnumProcessModules( hCurrentProc, hAddtnlMods,
+                                sizeof( hAddtnlMods ), &cbNeeded ) != 0 )
+        {
+            DWORD i;
+            for( i = 0; i < cbNeeded / sizeof( HMODULE ); i++ )
+            {
+                global_add( &first_automatic_object, hAddtnlMods[i] );
+            }
+        }
+        auto_ref_count++;
     }
     else
     {
@@ -233,13 +266,28 @@ void *dlopen( const char *file, int mode )
         if( !hModule )
             save_err_str( lpFileName );
         else if( (mode & RTLD_GLOBAL) )
-            global_add( hModule );
+            global_add( &first_object, hModule );
     }
 
     /* Return to previous state of the error-mode bit flags. */
     SetErrorMode( uMode );
 
     return (void *) hModule;
+}
+
+static void free_auto( )
+{
+    global_object *pobject = first_automatic_object.next;
+    if( pobject )
+    {
+        global_object *next;
+        for ( ; pobject; pobject = next )
+        {
+            next = pobject->next;
+            free( pobject );
+        }
+        first_automatic_object.next = NULL;
+    }
 }
 
 int dlclose( void *handle )
@@ -255,7 +303,18 @@ int dlclose( void *handle )
      * objects.
      */
     if( ret )
-        global_rem( hModule );
+    {
+        HMODULE cur = GetModuleHandle( NULL );
+        global_rem( &first_object, hModule );
+        if( hModule == cur )
+        {
+            auto_ref_count--;
+            if( auto_ref_count < 0 )
+                auto_ref_count = 0;
+            if( !auto_ref_count )
+                free_auto( );
+        }
+    }
     else
         save_err_ptr_str( handle );
 
@@ -268,37 +327,47 @@ int dlclose( void *handle )
 void *dlsym( void *handle, const char *name )
 {
     FARPROC symbol;
+    HMODULE hModule;
 
     current_error = NULL;
 
     symbol = GetProcAddress( handle, name );
 
-    if( symbol == NULL )
+    if( symbol != NULL )
+        goto end;
+
+    /* If the handle for the original program file is passed, also search
+     * in all globally loaded objects.
+     */
+
+    hModule = GetModuleHandle( NULL );
+
+    if( hModule == handle )
     {
-        HMODULE hModule;
+        global_object *pobject;
 
-        /* If the handle for the original program file is passed, also search
-         * in all globally loaded objects.
-         */
-
-        hModule = GetModuleHandle( NULL );
-
-        if( hModule == handle )
+        for( pobject = &first_object; pobject; pobject = pobject->next )
         {
-            global_object *pobject;
-
-            for( pobject = &first_object; pobject ; pobject = pobject->next )
+            if( pobject->hModule )
             {
-                if( pobject->hModule )
-                {
-                    symbol = GetProcAddress( pobject->hModule, name );
-                    if( symbol != NULL )
-                        break;
-                }
+                symbol = GetProcAddress( pobject->hModule, name );
+                if( symbol != NULL )
+                    goto end;
+            }
+        }
+
+        for( pobject = &first_automatic_object; pobject; pobject = pobject->next )
+        {
+            if( pobject->hModule )
+            {
+                symbol = GetProcAddress( pobject->hModule, name );
+                if( symbol != NULL )
+                    goto end;
             }
         }
     }
 
+end:
     if( symbol == NULL )
         save_err_str( name );
 
@@ -316,3 +385,22 @@ char *dlerror( void )
 
     return error_pointer;
 }
+
+#ifdef SHARED
+BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
+{
+    /*
+     * https://msdn.microsoft.com/en-us/library/windows/desktop/ms682583(v=vs.85).aspx 
+     *
+     *     When handling DLL_PROCESS_DETACH, a DLL should free resources such as heap
+     *     memory only if the DLL is being unloaded dynamically (the lpReserved
+     *     parameter is NULL).
+     */
+    if( fdwReason == DLL_PROCESS_DETACH && !lpvReserved )
+    {
+        auto_ref_count = 0;
+        free_auto( );
+    }
+    return TRUE;
+}
+#endif

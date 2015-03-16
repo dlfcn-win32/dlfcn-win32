@@ -13,7 +13,12 @@ option(BUILD_TESTS "tests?" OFF)
 set(headers dlfcn.h)
 set(sources dlfcn.c)
 
+if (BUILD_SHARED_LIBS)
+  add_definitions(-DSHARED)
+endif (BUILD_SHARED_LIBS)
+
 add_library(dl ${sources})
+target_link_libraries(dl psapi)
 
 install (TARGETS dl RUNTIME DESTINATION bin
                     LIBRARY DESTINATION lib${LIB_SUFFIX}
