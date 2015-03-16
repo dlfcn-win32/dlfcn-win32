@@ -373,6 +373,10 @@ end:
     if( symbol == NULL )
         save_err_str( name );
 
+//  warning C4054: 'type cast' : from function pointer 'FARPROC' to data pointer 'void *'
+#ifdef _MSC_VER
+#pragma warning( suppress: 4054 )
+#endif
     return (void*) symbol;
 }
 
@@ -391,6 +395,7 @@ char *dlerror( void )
 #ifdef SHARED
 BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
 {
+    (void) hinstDLL;
     /*
      * https://msdn.microsoft.com/en-us/library/windows/desktop/ms682583(v=vs.85).aspx 
      *
