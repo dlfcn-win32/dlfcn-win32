@@ -27,7 +27,9 @@
 #include <psapi.h>
 #include <stdio.h>
 
+#ifdef SHARED
 #define DLFCN_WIN32_EXPORTS
+#endif
 #include "dlfcn.h"
 
 /* Note:
