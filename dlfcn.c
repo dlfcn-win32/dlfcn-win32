@@ -1,6 +1,7 @@
 /*
  * dlfcn-win32
  * Copyright (c) 2007 Ramiro Polla
+ * Copyright (c) 2015 Tiancheng "Timothy" Gu
  *
  * dlfcn-win32 is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
