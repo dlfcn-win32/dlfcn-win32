@@ -17,11 +17,19 @@ http://www.opengroup.org/onlinepubs/009695399/functions/dlsym.html
 http://www.opengroup.org/onlinepubs/009695399/functions/dlclose.html
 http://www.opengroup.org/onlinepubs/009695399/functions/dlopen.html
 
+Using This Library
+------------------
+
+This library uses the Process Status API in Windows (`psapi.lib`). If you are
+linking to the static `dl.lib` or `libdl.a`, then you would need to explicitly
+add `psapi.lib` or `-lpsapi` to your linking command, depending on if MinGW is
+used.
+
 Author
 ------
 
 Written by Ramiro Polla in 2007.
-Maintained by Tiancheng "Timothy" Gu from 2013 to 2014.
+Maintained by Tiancheng "Timothy" Gu from 2013.
 
 License
 -------
