@@ -70,7 +70,11 @@ test: $(TARGETS) test.exe testdll.dll
 	$(WINE) test.exe
 
 clean::
-	rm -f dlfcn.o libdl.dll libdl.a libdl.def libdl.dll.a libdl.lib libdl.exp test.exe testdll.dll
+	rm -f \
+		dlfcn.o \
+		libdl.dll libdl.a libdl.def libdl.dll.a libdl.lib libdl.exp \
+		tmptest.c tmptest.dll \
+		test.exe testdll.dll
 
 distclean: clean
 	rm -f config.mak

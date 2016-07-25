@@ -154,13 +154,13 @@ disabled shared && disabled static && {
 }
 
 # simple cc test
-cat > /tmp/test.c << EOF
+cat > tmptest.c << EOF
 #include <windows.h>
 void function(void)
 { LoadLibrary(NULL); }
 EOF
-echo testing compiler: $cc -shared -o /tmp/test.dll /tmp/test.c
-$cc -shared -o /tmp/test.dll /tmp/test.c
+echo testing compiler: $cc -shared -o tmptest.dll tmptest.c
+$cc -shared -o tmptest.dll tmptest.c
 
 test "$?" != 0 && {
     echo "$cc could not create shared file with Windows API functions.";
