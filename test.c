@@ -24,6 +24,7 @@
 #include <crtdbg.h>
 #endif
 #include <stdio.h>
+#include <string.h>
 #include "dlfcn.h"
 
 /* If these dlclose's fails, we don't care as the handles are going to be

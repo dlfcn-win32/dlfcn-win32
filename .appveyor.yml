@@ -52,7 +52,7 @@ build_script:
   - ps: if($env:PLATFORM -eq "x64") { $env:CMAKE_GEN_SUFFIX=" Win64" }
   - md build
   - cd build
-  - cmake "-G%GENERATOR%%CMAKE_GEN_SUFFIX%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON ..
+  - cmake "-G%GENERATOR%%CMAKE_GEN_SUFFIX%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX="./install" ..
   - cmake --build . --config "%CONFIGURATION%"
 
 test_script:
@@ -60,4 +60,15 @@ test_script:
 
 after_test:
   - cmake --build . --config "%CONFIGURATION%" --target INSTALL
+  # Test also the use of dlfcn-win32 from an external CMake project 
+  # Append the instllation directory of dlfcn-win32 to CMAKE_PREFIX_PATH to make sure that the CMake project is found 
+  - set CMAKE_PREFIX_PATH=%APPVEYOR_BUILD_FOLDER%/build/install 
+  # Append the bin installation directory of dlfcn-win32 to the path to make sure that .dll are found 
+  - set PATH=%PATH%;%APPVEYOR_BUILD_FOLDER%/build/install/bin 
+  - cd ../cmake-test 
+  - md build
+  - cd build
+  - cmake "-G%GENERATOR%%CMAKE_GEN_SUFFIX%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON ..
+  - cmake --build . --config "%CONFIGURATION%"
+  - ctest --output-on-failure --build-config "%CONFIGURATION%"
 
