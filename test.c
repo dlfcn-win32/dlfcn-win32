@@ -24,6 +24,7 @@
 #include <crtdbg.h>
 #endif
 #include <stdio.h>
+#include <string.h>
 #include "dlfcn.h"
 
 /* If these dlclose's fails, we don't care as the handles are going to be
@@ -41,7 +42,6 @@
                         RETURN_ERROR;  \
                     }                  \
                 } while( 0 )
-                        
 
 /* This is what this test does:
  * - Open library with RTLD_GLOBAL
@@ -74,7 +74,7 @@ int main()
     void *library;
     char *error;
     int (*function)( void );
-    int (*printf_local)( const char * );
+    size_t (*fwrite_local) ( const void *, size_t, size_t, FILE * );
     int (*nonexistentfunction)( void );
     int ret;
 
@@ -108,8 +108,8 @@ int main()
     else
         printf( "SUCCESS\tGot global handle: %p\n", global );
 
-    printf_local = dlsym(global, "printf");
-    if (!printf_local)
+    fwrite_local = dlsym(global, "fwrite");
+    if (!fwrite_local)
     {
         error = dlerror();
         printf("ERROR\tCould not get symbol from global handle: %s\n",
@@ -119,8 +119,10 @@ int main()
         RETURN_ERROR;
     }
     else
-        printf("SUCCESS\tGot symbol from global handle: %p\n", printf_local);
-    printf_local("Hello world from local printf!\n");
+        printf("SUCCESS\tGot symbol from global handle: %p\n", fwrite_local);
+    char * hello_world = "Hello world from local fwrite!\n";
+    fwrite_local(hello_world,sizeof(char),strlen(hello_world),stderr);
+    fflush(stderr);
 
     function = dlsym( library, "function" );
     if( !function )
@@ -304,7 +306,7 @@ int main()
                 error ? error : "" );
     }
 
-    function = dlsym(global, "printf");
+    function = dlsym(global, "fwrite");
     if (!function)
     {
         error = dlerror();
@@ -316,6 +318,7 @@ int main()
     }
     else
         printf("SUCCESS\tGot symbol from global handle: %p\n", function);
+    
 
     ret = dlclose( library );
     if( ret )
