@@ -1,4 +1,4 @@
-# Copyright (c) 2014, Ruslan Baratov
+# Copyright (c) 2014 Ruslan Baratov
 # Copyright (c) 2014, 2016 Alexander Lamaison
 # Copyright (c) 2017 Silvio Traversaro
 # All rights reserved.
@@ -24,7 +24,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-os: Visual Studio 2015
+image: Visual Studio 2015
 
 environment:
   matrix:
@@ -41,34 +41,34 @@ environment:
       BUILD_SHARED_LIBS: OFF
 
 platform:
-  - x86
+  - Win32
   - x64
 
 configuration:
   - Debug
   - Release
-  
-build_script:
-  - ps: if($env:PLATFORM -eq "x64") { $env:CMAKE_GEN_SUFFIX=" Win64" }
+
+before_build:
   - md build
   - cd build
-  - cmake "-G%GENERATOR%%CMAKE_GEN_SUFFIX%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX="./install" ..
-  - cmake --build . --config "%CONFIGURATION%"
+  - cmake -G "%GENERATOR%" -A "%PLATFORM%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=install ..
+
+build:
+  project: build/dlfcn-win32.sln
 
 test_script:
   - ctest --output-on-failure --build-config "%CONFIGURATION%"
 
 after_test:
   - cmake --build . --config "%CONFIGURATION%" --target INSTALL
-  # Test also the use of dlfcn-win32 from an external CMake project 
-  # Append the instllation directory of dlfcn-win32 to CMAKE_PREFIX_PATH to make sure that the CMake project is found 
-  - set CMAKE_PREFIX_PATH=%APPVEYOR_BUILD_FOLDER%/build/install 
-  # Append the bin installation directory of dlfcn-win32 to the path to make sure that .dll are found 
-  - set PATH=%PATH%;%APPVEYOR_BUILD_FOLDER%/build/install/bin 
-  - cd ../cmake-test 
+  # Test also the use of dlfcn-win32 from an external CMake project
+  # Append the instllation directory of dlfcn-win32 to CMAKE_PREFIX_PATH to make sure that the CMake project is found
+  - set CMAKE_PREFIX_PATH=%APPVEYOR_BUILD_FOLDER%/build/install
+  # Append the bin installation directory of dlfcn-win32 to the path to make sure that .dll are found
+  - set PATH=%PATH%;%APPVEYOR_BUILD_FOLDER%/build/install/bin
+  - cd ../cmake-test
   - md build
   - cd build
-  - cmake "-G%GENERATOR%%CMAKE_GEN_SUFFIX%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON ..
+  - cmake -G "%GENERATOR%" -A "%PLATFORM%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON ..
   - cmake --build . --config "%CONFIGURATION%"
   - ctest --output-on-failure --build-config "%CONFIGURATION%"
-
