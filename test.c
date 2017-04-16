@@ -87,7 +87,7 @@ int main()
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
 #endif
 
-    library = dlopen( "testdll.dll", RTLD_GLOBAL );
+    library = dlopen( "testdll.dll", RTLD_NOW );
     if( !library )
     {
         error = dlerror( );
