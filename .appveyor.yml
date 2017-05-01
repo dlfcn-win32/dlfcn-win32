@@ -24,20 +24,30 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-image: Visual Studio 2015
-
 environment:
   matrix:
-    - GENERATOR: "Visual Studio 14 2015"
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      GENERATOR: "Visual Studio 15 2017"
       BUILD_SHARED_LIBS: ON
 
-    - GENERATOR: "Visual Studio 14 2015"
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      GENERATOR: "Visual Studio 15 2017"
+      BUILD_SHARED_LIBS: OFF
+  
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "Visual Studio 14 2015"
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "Visual Studio 14 2015"
       BUILD_SHARED_LIBS: OFF
 
-    - GENERATOR: "Visual Studio 12 2013"
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "Visual Studio 12 2013"
       BUILD_SHARED_LIBS: ON
 
-    - GENERATOR: "Visual Studio 12 2013"
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "Visual Studio 12 2013"
       BUILD_SHARED_LIBS: OFF
 
 platform:
