@@ -431,6 +431,12 @@ end:
 char *dlerror( void )
 {
     char *error_pointer = dlerror_buffer;
+    
+    /* If this is the second consecutive call to dlerror, return NULL */
+    if (current_error == NULL)
+    {
+        return NULL;
+    }
 
 #ifdef UNICODE
     errno_t err = 0;

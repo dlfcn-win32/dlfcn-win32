@@ -304,6 +304,21 @@ int main()
         error = dlerror( );
         printf( "SUCCESS\tCould not get nonexistent symbol from global handle: %s\n",
                 error ? error : "" );
+                
+        /* Test that the second call to dlerror() returns null as in the specs 
+           See https://github.com/dlfcn-win32/dlfcn-win32/issues/34 */
+        error = dlerror( );
+        if( error == NULL )
+        {
+            printf( "SUCCESS\tSecond consecutive call to dlerror returned NULL\n");
+        }
+        else 
+        {
+            printf( "ERROR\tSecond consecutive call to dlerror returned a non-NULL pointer: %p\n", error );
+            CLOSE_LIB;
+            CLOSE_GLOBAL;
+            RETURN_ERROR;
+        }
     }
 
     function = dlsym(global, "fwrite");
