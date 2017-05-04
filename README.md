@@ -1,4 +1,4 @@
-dlfcn-win32 [![Build status](https://ci.appveyor.com/api/projects/status/jc2mp23oxvrof2ka/branch/master?svg=true)](https://ci.appveyor.com/project/dlfcn-win32/dlfcn-win32/branch/master)
+dlfcn-win32 [![Build status](https://ci.appveyor.com/api/projects/status/celmbkqj0k41fk04/branch/master?svg=true)](https://ci.appveyor.com/project/dlfcn-win32/dlfcn-win32/branch/master)
 ===========
 
 dlfcn-win32 is an implementation of dlfcn for Windows.
