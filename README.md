@@ -20,6 +20,30 @@ http://www.opengroup.org/onlinepubs/009695399/functions/dlopen.html
 Using This Library
 ------------------
 
+### Using CMake 
+Once the library has been installed, add to your project `CMakeLists.txt` : 
+~~~
+...
+find_package(dlfcn-win32 REQUIRED)
+...
+target_link_libraries(<target> dlfcn-win32::dl)
+...
+~~~
+If you want to use this library in a cross-platform project, a convenient way 
+to proceed is to define the CMake variable [`CMAKE_DL_LIBS`](https://cmake.org/cmake/help/latest/variable/CMAKE_DL_LIBS.html)
+(that is normally empty on Windows) and then use it for linking: 
+~~~
+...
+if (WIN32)
+  find_package(dlfcn-win32 REQUIRED)
+  set(CMAKE_DL_LIBS dlfcn-win32::dl)
+endif ()  
+...
+target_link_libraries(<target> ${CMAKE_DL_LIBS})
+...
+~~~
+
+### Linking caveat  
 This library uses the Process Status API in Windows (`psapi.lib`). If you are
 linking to the static `dl.lib` or `libdl.a`, then you would need to explicitly
 add `psapi.lib` or `-lpsapi` to your linking command, depending on if MinGW is
