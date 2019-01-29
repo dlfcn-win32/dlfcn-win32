@@ -44,8 +44,8 @@ extern "C" {
  * Note: All other RTLD_* flags in any dlfcn.h are not standard compliant.
  */
 
-#define RTLD_DEFAULT    0
-#define RTLD_NEXT       0
+#define RTLD_DEFAULT    ((void *)0)
+#define RTLD_NEXT       ((void *)-1)
 
 DLFCN_EXPORT void *dlopen ( const char *file, int mode );
 DLFCN_EXPORT int   dlclose(void *handle);

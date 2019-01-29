@@ -30,6 +30,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef _MSC_VER
+/* https://docs.microsoft.com/en-us/cpp/intrinsics/returnaddress */
+#include <intrin.h>
+#pragma intrinsic(_ReturnAddress)
+#else
+/* https://gcc.gnu.org/onlinedocs/gcc/Return-Address.html */
+#ifndef _ReturnAddress
+#define _ReturnAddress() (__builtin_extract_return_addr(__builtin_return_address(0)))
+#endif
+#endif
+
 #ifdef SHARED
 #define DLFCN_WIN32_EXPORTS
 #endif
@@ -312,9 +323,11 @@ int dlclose( void *handle )
     return (int) ret;
 }
 
+__declspec(noinline) /* Needed for _ReturnAddress() */
 void *dlsym( void *handle, const char *name )
 {
     FARPROC symbol;
+    HMODULE hCaller;
     HMODULE hModule;
     HANDLE hCurrentProc;
 
@@ -324,20 +337,53 @@ void *dlsym( void *handle, const char *name )
 #endif
 
     current_error = NULL;
+    symbol = NULL;
+    hCaller = NULL;
+    hModule = GetModuleHandle( NULL );
     hCurrentProc = GetCurrentProcess( );
 
-    symbol = GetProcAddress( (HMODULE) handle, name );
+    if( handle == RTLD_DEFAULT )
+    {
+        /* The symbol lookup happens in the normal global scope; that is,
+         * a search for a symbol using this handle would find the same
+         * definition as a direct use of this symbol in the program code.
+         * So use same lookup procedure as when filename is NULL.
+         */
+        handle = hModule;
+    }
+    else if( handle == RTLD_NEXT )
+    {
+        /* Specifies the next object after this one that defines name.
+         * This one refers to the object containing the invocation of dlsym().
+         * The next object is the one found upon the application of a load
+         * order symbol resolution algorithm. To get caller function of dlsym()
+         * use _ReturnAddress() intrinsic. To get HMODULE of caller function
+         * use undocumented hack from https://stackoverflow.com/a/2396380
+         * The HMODULE of a DLL is the same value as the module's base address.
+         */
+        MEMORY_BASIC_INFORMATION info;
+        size_t sLen;
+        sLen = VirtualQueryEx( hCurrentProc, _ReturnAddress(), &info, sizeof( info ) );
+        if( sLen != sizeof( info ) )
+            goto end;
+        hCaller = (HMODULE) info.AllocationBase;
+        if(!hCaller)
+            goto end;
+    }
 
-    if( symbol != NULL )
-        goto end;
+    if( handle != RTLD_NEXT )
+    {
+        symbol = GetProcAddress( (HMODULE) handle, name );
+
+        if( symbol != NULL )
+            goto end;
+    }
 
     /* If the handle for the original program file is passed, also search
      * in all globally loaded objects.
      */
 
-    hModule = GetModuleHandle( NULL );
-
-    if( hModule == handle )
+    if( hModule == handle || handle == RTLD_NEXT )
     {
         HMODULE *modules;
         DWORD cbNeeded;
@@ -357,6 +403,13 @@ void *dlsym( void *handle, const char *name )
                 {
                     for( i = 0; i < dwSize / sizeof( HMODULE ); i++ )
                     {
+                        if( handle == RTLD_NEXT && hCaller )
+                        {
+                            /* Next modules can be used for RTLD_NEXT */
+                            if( hCaller == modules[i] )
+                                hCaller = NULL;
+                            continue;
+                        }
                         if( local_search( modules[i] ) )
                             continue;
                         symbol = GetProcAddress( modules[i], name );

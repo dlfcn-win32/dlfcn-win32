@@ -73,10 +73,13 @@
 int main()
 {
     void *global;
+    void *library2;
     void *library;
     char *error;
     int (*function)( void );
+    int (*function2_from_library2)( void );
     size_t (*fwrite_local) ( const void *, size_t, size_t, FILE * );
+    size_t (*fputs_default) ( const char *, FILE * );
     int (*nonexistentfunction)( void );
     int ret;
     HMODULE library3;
@@ -89,6 +92,16 @@ int main()
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
 #endif
+
+    library2 = dlopen( "testdll2.dll", RTLD_GLOBAL );
+    if( !library2 )
+    {
+        error = dlerror( );
+        printf( "ERROR\tCould not open library2 globally: %s\n", error ? error : "" );
+        RETURN_ERROR; 
+    }
+    else
+        printf( "SUCCESS\tOpened library2 globally: %p\n", library2 );
 
     library = dlopen( "testdll.dll", RTLD_GLOBAL );
     if( !library )
@@ -127,6 +140,22 @@ int main()
     fwrite_local(hello_world,sizeof(char),strlen(hello_world),stderr);
     fflush(stderr);
 
+    fputs_default = dlsym(RTLD_DEFAULT, "fputs");
+    if (!fputs_default)
+    {
+        error = dlerror();
+        printf("ERROR\tCould not get symbol from default handle: %s\n",
+            error ? error : "");
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
+    else
+        printf("SUCCESS\tGot symbol from default handle: %p\n", fputs_default);
+    char * hello_world_fputs = "Hello world from default fputs!\n";
+    fputs_default(hello_world_fputs, stderr);
+    fflush(stderr);
+
     function = dlsym( library, "function" );
     if( !function )
     {
@@ -141,6 +170,27 @@ int main()
         printf( "SUCCESS\tGot symbol from library handle: %p\n", function );
 
     RUNFUNC;
+
+    function2_from_library2 = dlsym( library2, "function2" );
+    if( !function2_from_library2 )
+    {
+        error = dlerror( );
+        printf( "ERROR\tCould not get symbol from library2 handle: %s\n",
+                error ? error : "" );
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
+    else
+        printf( "SUCCESS\tGot symbol from library2 handle: %p\n", function2_from_library2 );
+
+    ret = function2_from_library2 ();
+    if( ret != 2 )
+    {
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
 
     nonexistentfunction = dlsym( library, "nonexistentfunction" );
     if( nonexistentfunction )
@@ -196,6 +246,16 @@ int main()
     }
     else
         printf( "SUCCESS\tClosed library.\n" );
+
+    ret = dlclose( library2 );
+    if( ret )
+    {
+        error = dlerror( );
+        printf( "ERROR\tCould not close library2: %s\n", error ? error : "" );
+        RETURN_ERROR;
+    }
+    else
+        printf( "SUCCESS\tClosed library2.\n" );
 
     library = dlopen( "testdll.dll", RTLD_LOCAL );
     if( !library )
