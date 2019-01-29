@@ -2,6 +2,7 @@
  * dlfcn-win32
  * Copyright (c) 2007-2009 Ramiro Polla
  * Copyright (c) 2014      Tiancheng "Timothy" Gu
+ * Copyright (c) 2019      Pali Rohár <pali.rohar@gmail.com>
  *
  * dlfcn-win32 is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,6 +26,7 @@
 #endif
 #include <stdio.h>
 #include <string.h>
+#include <windows.h>
 #include "dlfcn.h"
 
 /* If these dlclose's fails, we don't care as the handles are going to be
@@ -77,6 +79,7 @@ int main()
     size_t (*fwrite_local) ( const void *, size_t, size_t, FILE * );
     int (*nonexistentfunction)( void );
     int ret;
+    HMODULE library3;
 
 #ifdef _DEBUG
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
@@ -335,6 +338,15 @@ int main()
         printf("SUCCESS\tGot symbol from global handle: %p\n", function);
     
 
+    library3 = LoadLibraryA("testdll3.dll");
+    if (!library3)
+    {
+        printf( "ERROR\tCould not open library3 via WINAPI\n" );
+        RETURN_ERROR;
+    }
+    else
+        printf( "SUCCESS\tOpened library3 via WINAPI: %p\n", library3 );
+
     ret = dlclose( library );
     if( ret )
     {
@@ -345,6 +357,21 @@ int main()
     }
     else
         printf( "SUCCESS\tClosed library.\n" );
+
+    function = dlsym(global, "function3");
+    if (!function)
+    {
+        error = dlerror();
+        printf("ERROR\tCould not get symbol from global handle: %s\n",
+            error ? error : "");
+        CLOSE_LIB;
+        CLOSE_GLOBAL;
+        RETURN_ERROR;
+    }
+    else
+        printf("SUCCESS\tGot symbol from global handle: %p\n", function);
+
+    RUNFUNC;
 
     ret = dlclose( global );
     if( ret )

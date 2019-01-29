@@ -8,6 +8,8 @@ find_package(dlfcn-win32 REQUIRED)
 
 add_library(testdll SHARED ../testdll.c)
 set_target_properties(testdll PROPERTIES PREFIX "")
+add_library(testdll3 SHARED ../testdll3.c)
+set_target_properties(testdll3 PROPERTIES PREFIX "")
 add_executable(t_dlfcn ../test.c)
 target_link_libraries(t_dlfcn dlfcn-win32::dl)
 enable_testing()
