@@ -50,6 +50,66 @@ environment:
       GENERATOR: "Visual Studio 12 2013"
       BUILD_SHARED_LIBS: OFF
 
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\MinGW"
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\MinGW"
+      BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\i686-5.3.0-posix-dwarf-rt_v4-rev0"
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\i686-5.3.0-posix-dwarf-rt_v4-rev0"
+      BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\i686-6.3.0-posix-dwarf-rt_v5-rev1"
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\i686-6.3.0-posix-dwarf-rt_v5-rev1"
+      BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\x86_64-6.3.0-posix-seh-rt_v5-rev1"
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\x86_64-6.3.0-posix-seh-rt_v5-rev1"
+      BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\x86_64-7.3.0-posix-seh-rt_v5-rev0"
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\x86_64-7.3.0-posix-seh-rt_v5-rev0"
+      BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\x86_64-7.2.0-posix-seh-rt_v5-rev1"
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      GENERATOR: "MinGW Makefiles"
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\x86_64-7.2.0-posix-seh-rt_v5-rev1"
+      BUILD_SHARED_LIBS: OFF
+
 platform:
   - Win32
   - x64
@@ -58,6 +118,21 @@ configuration:
   - Debug
   - Release
 
+matrix:
+  exclude:
+    - platform: x64
+      CMAKE_PREFIX_PATH: "C:\\MinGW"
+    - platform: x64
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\i686-5.3.0-posix-dwarf-rt_v4-rev0"
+    - platform: x64
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\i686-6.3.0-posix-dwarf-rt_v5-rev1"
+    - platform: Win32
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\x86_64-6.3.0-posix-seh-rt_v5-rev1"
+    - platform: Win32
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\x86_64-7.3.0-posix-seh-rt_v5-rev0"
+    - platform: Win32
+      CMAKE_PREFIX_PATH: "C:\\mingw-w64\\x86_64-7.2.0-posix-seh-rt_v5-rev1"
+
 before_build:
   - md build
   - cd build
@@ -65,6 +140,13 @@ before_build:
 
 build:
   project: build/dlfcn-win32.sln
+
+for:
+  - matrix:
+      only:
+        - GENERATOR: "MinGW Makefiles"
+    build_script:
+      - cmake --build . --config "%CONFIGURATION%" --target INSTALL
 
 test_script:
   - ctest --output-on-failure --build-config "%CONFIGURATION%"
