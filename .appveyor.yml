@@ -49,6 +49,14 @@ environment:
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "Visual Studio 12 2013"
       BUILD_SHARED_LIBS: OFF
+      
+    - GENERATOR: MinGW Makefiles
+      PLATFORM: Win32
+      BUILD_TYPE: Debug
+
+    - GENERATOR: MinGW Makefiles
+      PLATFORM: Win32
+      BUILD_TYPE: Release
 
 platform:
   - Win32
@@ -61,11 +69,11 @@ configuration:
 before_build:
   - md build
   - cd build
-  - cmake -G "%GENERATOR%" -A "%PLATFORM%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=install ..
+  - cmake -G "%GENERATOR%" -A "%PLATFORM%" -DCMAKE_BUILD_TYPE=%CONFIGURATION% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=install ..
 
 build:
-  project: build/dlfcn-win32.sln
-
+  - cmake --build . --config "%CONFIGURATION%"
+  
 test_script:
   - ctest --output-on-failure --build-config "%CONFIGURATION%"
 
@@ -79,6 +87,6 @@ after_test:
   - cd ../cmake-test
   - md build
   - cd build
-  - cmake -G "%GENERATOR%" -A "%PLATFORM%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON ..
+  - cmake -G "%GENERATOR%" -A "%PLATFORM%" -DCMAKE_BUILD_TYPE=%CONFIGURATION% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON ..
   - cmake --build . --config "%CONFIGURATION%"
   - ctest --output-on-failure --build-config "%CONFIGURATION%"
