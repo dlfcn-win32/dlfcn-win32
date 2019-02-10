@@ -135,9 +135,10 @@ matrix:
 
 before_build:
   - ren "C:\\Program Files\\Git\\usr\\bin\\sh.exe" sh.exe_do_not_use
+  - if /I %GENERATOR% == "MinGW Makefiles" (set "GENERATOR_ARGS= ") else (set "GENERATOR_ARGS=-A %PLATFORM%")
   - md build
   - cd build
-  - cmake -G "%GENERATOR%" -A "%PLATFORM%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=install ..
+  - cmake -G "%GENERATOR%" %GENERATOR_ARGS% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=install ..
 
 build:
   project: build/dlfcn-win32.sln
@@ -162,7 +163,6 @@ after_test:
   - cd ../cmake-test
   - md build
   - cd build
-  - if /I %GENERATOR% == "MinGW Makefiles" (set "PLATFORM_ARG= ") else (set "PLATFORM_ARG=-A %PLATFORM%")
-  - cmake -G "%GENERATOR%" %PLATFORM_ARG% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON ..
+  - cmake -G "%GENERATOR%" %GENERATOR_ARGS% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON ..
   - cmake --build . --config "%CONFIGURATION%"
   - ctest --output-on-failure --build-config "%CONFIGURATION%"
