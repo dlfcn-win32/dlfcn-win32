@@ -71,7 +71,7 @@ before_build:
   - cd build
   - cmake -G "%GENERATOR%" -A "%PLATFORM%" -DCMAKE_BUILD_TYPE=%CONFIGURATION% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=install ..
 
-build:
+build_script:
   - cmake --build . --config "%CONFIGURATION%"
   
 test_script:
