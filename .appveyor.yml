@@ -135,7 +135,7 @@ matrix:
 
 before_build:
   - ren "C:\\Program Files\\Git\\usr\\bin\\sh.exe" sh.exe_do_not_use
-  - if /I "%GENERATOR%" == "MinGW Makefiles" (set "GENERATOR_ARGS= ") else (set "GENERATOR_ARGS=-A %PLATFORM%")
+  - if /I "%GENERATOR%" == "MinGW Makefiles" (set "GENERATOR_ARGS=-DCMAKE_PREFIX_PATH=%CMAKE_PREFIX_PATH%") else (set "GENERATOR_ARGS=-A %PLATFORM%")
   - md build
   - cd build
   - cmake -G "%GENERATOR%" %GENERATOR_ARGS% -DCMAKE_BUILD_TYPE=%CONFIGURATION% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=install ..
