@@ -138,7 +138,7 @@ before_build:
   - if /I %GENERATOR% == "MinGW Makefiles" (set "GENERATOR_ARGS= ") else (set "GENERATOR_ARGS=-A %PLATFORM%")
   - md build
   - cd build
-  - cmake -G "%GENERATOR%" %GENERATOR_ARGS% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=install ..
+  - cmake -G "%GENERATOR%" %GENERATOR_ARGS% -DCMAKE_BUILD_TYPE=%CONFIGURATION% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=install ..
 
 build:
   project: build/dlfcn-win32.sln
@@ -148,7 +148,7 @@ for:
       only:
         - GENERATOR: "MinGW Makefiles"
     build_script:
-      - cmake --build . --config "%CONFIGURATION%" --target INSTALL
+      - cmake --build . --config "%CONFIGURATION%"
 
 test_script:
   - ctest --output-on-failure --build-config "%CONFIGURATION%"
@@ -163,6 +163,6 @@ after_test:
   - cd ../cmake-test
   - md build
   - cd build
-  - cmake -G "%GENERATOR%" %GENERATOR_ARGS% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON ..
+  - cmake -G "%GENERATOR%" %GENERATOR_ARGS% -DCMAKE_BUILD_TYPE=%CONFIGURATION% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON ..
   - cmake --build . --config "%CONFIGURATION%"
   - ctest --output-on-failure --build-config "%CONFIGURATION%"
