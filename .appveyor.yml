@@ -26,6 +26,66 @@
 
 environment:
   matrix:
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\MinGW\bin'
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\MinGW\bin'
+      BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\i686-5.3.0-posix-dwarf-rt_v4-rev0\mingw32\bin'
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\i686-5.3.0-posix-dwarf-rt_v4-rev0\mingw32\bin'
+      BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin'
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin'
+      BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-6.3.0-posix-seh-rt_v5-rev1\mingw64\bin'
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-6.3.0-posix-seh-rt_v5-rev1\mingw64\bin'
+      BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0\mingw64\bin'
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0\mingw64\bin'
+      BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0\mingw64\bin'
+      BUILD_SHARED_LIBS: ON
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0\mingw64\bin'
+      BUILD_SHARED_LIBS: OFF
+
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       GENERATOR: "Visual Studio 15 2017"
       BUILD_SHARED_LIBS: ON
@@ -58,19 +118,38 @@ configuration:
   - Debug
   - Release
 
+matrix:
+  exclude:
+    - platform: x64
+      cc_path: 'C:\MinGW\bin'
+    - platform: x64
+      cc_path: 'C:\mingw-w64\i686-5.3.0-posix-dwarf-rt_v4-rev0\mingw32\bin'
+    - platform: x64
+      cc_path: 'C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin'
+    - platform: Win32
+      cc_path: 'C:\mingw-w64\x86_64-6.3.0-posix-seh-rt_v5-rev1\mingw64\bin'
+    - platform: Win32
+      cc_path: 'C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0\mingw64\bin'
+    - platform: Win32
+      cc_path: 'C:\mingw-w64\x86_64-7.2.0-posix-seh-rt_v5-rev1\mingw64\bin'
+
 before_build:
+  # See https://help.appveyor.com/discussions/problems/3193-cmake-building-for-mingw-issue-with-git-shexe
+  - if "%generator%"=="MinGW Makefiles" (set "PATH=%PATH:C:\Program Files\Git\usr\bin;=%")
+  - if not "%cc_path%"=="" (set "PATH=%PATH%;%cc_path%")
+  - if /I "%GENERATOR%" == "MinGW Makefiles" (set "GENERATOR_ARGS=") else (set "GENERATOR_ARGS=-A %PLATFORM%")
   - md build
   - cd build
-  - cmake -G "%GENERATOR%" -A "%PLATFORM%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=install ..
+  - cmake -G "%GENERATOR%" %GENERATOR_ARGS% -DCMAKE_BUILD_TYPE=%CONFIGURATION% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON -DCMAKE_INSTALL_PREFIX=install ..
 
-build:
-  project: build/dlfcn-win32.sln
+build_script:
+  - cmake --build . --config "%CONFIGURATION%"
 
 test_script:
   - ctest --output-on-failure --build-config "%CONFIGURATION%"
 
 after_test:
-  - cmake --build . --config "%CONFIGURATION%" --target INSTALL
+  - cmake --build . --config "%CONFIGURATION%" --target install
   # Test also the use of dlfcn-win32 from an external CMake project
   # Append the instllation directory of dlfcn-win32 to CMAKE_PREFIX_PATH to make sure that the CMake project is found
   - set CMAKE_PREFIX_PATH=%APPVEYOR_BUILD_FOLDER%/build/install
@@ -79,6 +158,6 @@ after_test:
   - cd ../cmake-test
   - md build
   - cd build
-  - cmake -G "%GENERATOR%" -A "%PLATFORM%" -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% -DBUILD_TESTS=ON ..
+  - cmake -G "%GENERATOR%" %GENERATOR_ARGS% -DCMAKE_BUILD_TYPE=%CONFIGURATION% -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS% ..
   - cmake --build . --config "%CONFIGURATION%"
   - ctest --output-on-failure --build-config "%CONFIGURATION%"
