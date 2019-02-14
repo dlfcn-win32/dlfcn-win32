@@ -1,6 +1,7 @@
 /*
  * dlfcn-win32
  * Copyright (c) 2007 Ramiro Polla
+ * Copyright (c) 2019 Pali Rohár <pali.rohar@gmail.com>
  *
  * dlfcn-win32 is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -30,13 +31,7 @@
 #define EXPORT
 #endif
 
-EXPORT int function2( void )
-{
-    printf( "Hello, world! from original library\n" );
-    return 0;
-}
-
-EXPORT int function( void )
+EXPORT int function3( void )
 {
     printf( "Hello, world!\n" );
     return 0;

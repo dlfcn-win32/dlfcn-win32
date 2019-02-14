@@ -1,6 +1,7 @@
 /*
  * dlfcn-win32
  * Copyright (c) 2007 Ramiro Polla
+ * Copyright (c) 2019 Pali Rohár <pali.rohar@gmail.com>
  *
  * dlfcn-win32 is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,6 +25,8 @@
 #endif
 #include <stdio.h>
 
+#include "dlfcn.h"
+
 #if defined(_WIN32)
 #define EXPORT __declspec(dllexport)
 #else
@@ -32,12 +35,21 @@
 
 EXPORT int function2( void )
 {
-    printf( "Hello, world! from original library\n" );
-    return 0;
-}
-
-EXPORT int function( void )
-{
-    printf( "Hello, world!\n" );
-    return 0;
+    char *error;
+    int (*function2_orig)(void);
+    printf( "Hello, world! from wrapper library\n" );
+    function2_orig = dlsym(RTLD_NEXT, "function2");
+    if (!function2_orig)
+    {
+        error = dlerror( );
+        printf( "ERROR\tCould not get symbol from RTLD_NEXT handle: %s\n",
+                error ? error : "" );
+        return 1;
+    }
+    if (function2_orig() != 0)
+    {
+        printf( "ERROR\tOriginal function from RTLD_NEXT handle did not return correct value\n" );
+        return 1;
+    }
+    return 2;
 }

@@ -66,7 +66,13 @@ test.exe: test.o $(TARGETS)
 testdll.dll: testdll.c
 	$(CC) -shared -o $@ $^
 
-test: $(TARGETS) test.exe testdll.dll
+testdll2.dll: testdll2.c $(TARGETS)
+	$(CC) -shared -o $@ $< -L. -ldl $(LIBS)
+
+testdll3.dll: testdll3.c
+	$(CC) -shared -o $@ $^
+
+test: $(TARGETS) test.exe testdll.dll testdll2.dll testdll3.dll
 	$(WINE) test.exe
 
 clean::
@@ -74,7 +80,7 @@ clean::
 		dlfcn.o \
 		libdl.dll libdl.a libdl.def libdl.dll.a libdl.lib libdl.exp \
 		tmptest.c tmptest.dll \
-		test.exe testdll.dll
+		test.exe testdll.dll testdll2.dll testdll3.dll
 
 distclean: clean
 	rm -f config.mak
