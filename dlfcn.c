@@ -46,10 +46,6 @@
 #endif
 #include "dlfcn.h"
 
-#if ((defined(_WIN32) || defined(WIN32)) && (defined(_MSC_VER)) )
-#define snprintf sprintf_s
-#endif
-
 /* Note:
  * MSDN says these functions are not thread-safe. We make no efforts to have
  * any kind of thread safety.
@@ -191,7 +187,11 @@ static void save_err_ptr_str( const void *ptr )
 {
     char ptr_buf[19]; /* 0x<pointer> up to 64 bits. */
 
-    snprintf( ptr_buf, 19, "0x%p", ptr );
+#ifdef _MSC_VER
+/* Supress warning C4996: 'sprintf': This function or variable may be unsafe */
+#pragma warning( suppress: 4996 )
+#endif
+    sprintf( ptr_buf, "0x%p", ptr );
 
     save_err_str( ptr_buf );
 }
