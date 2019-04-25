@@ -34,7 +34,19 @@ environment:
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "MinGW Makefiles"
       cc_path: 'C:\MinGW\bin'
+      BUILD_SHARED_LIBS: ON
+      CFLAGS: '-DUNICODE -D_UNICODE'
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\MinGW\bin'
       BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\MinGW\bin'
+      BUILD_SHARED_LIBS: OFF
+      CFLAGS: '-DUNICODE -D_UNICODE'
 
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "MinGW Makefiles"
@@ -44,7 +56,19 @@ environment:
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "MinGW Makefiles"
       cc_path: 'C:\mingw-w64\i686-5.3.0-posix-dwarf-rt_v4-rev0\mingw32\bin'
+      BUILD_SHARED_LIBS: ON
+      CFLAGS: '-DUNICODE -D_UNICODE'
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\i686-5.3.0-posix-dwarf-rt_v4-rev0\mingw32\bin'
       BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\i686-5.3.0-posix-dwarf-rt_v4-rev0\mingw32\bin'
+      BUILD_SHARED_LIBS: OFF
+      CFLAGS: '-DUNICODE -D_UNICODE'
 
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "MinGW Makefiles"
@@ -54,7 +78,19 @@ environment:
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "MinGW Makefiles"
       cc_path: 'C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin'
+      BUILD_SHARED_LIBS: ON
+      CFLAGS: '-DUNICODE -D_UNICODE'
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin'
       BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin'
+      BUILD_SHARED_LIBS: OFF
+      CFLAGS: '-DUNICODE -D_UNICODE'
 
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "MinGW Makefiles"
@@ -64,7 +100,19 @@ environment:
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "MinGW Makefiles"
       cc_path: 'C:\mingw-w64\x86_64-6.3.0-posix-seh-rt_v5-rev1\mingw64\bin'
+      BUILD_SHARED_LIBS: ON
+      CFLAGS: '-DUNICODE -D_UNICODE'
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-6.3.0-posix-seh-rt_v5-rev1\mingw64\bin'
       BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-6.3.0-posix-seh-rt_v5-rev1\mingw64\bin'
+      BUILD_SHARED_LIBS: OFF
+      CFLAGS: '-DUNICODE -D_UNICODE'
 
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "MinGW Makefiles"
@@ -74,7 +122,19 @@ environment:
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "MinGW Makefiles"
       cc_path: 'C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0\mingw64\bin'
+      BUILD_SHARED_LIBS: ON
+      CFLAGS: '-DUNICODE -D_UNICODE'
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0\mingw64\bin'
       BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0\mingw64\bin'
+      BUILD_SHARED_LIBS: OFF
+      CFLAGS: '-DUNICODE -D_UNICODE'
 
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       GENERATOR: "MinGW Makefiles"
@@ -84,7 +144,19 @@ environment:
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       GENERATOR: "MinGW Makefiles"
       cc_path: 'C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0\mingw64\bin'
+      BUILD_SHARED_LIBS: ON
+      CFLAGS: '-DUNICODE -D_UNICODE'
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0\mingw64\bin'
       BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      GENERATOR: "MinGW Makefiles"
+      cc_path: 'C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0\mingw64\bin'
+      BUILD_SHARED_LIBS: OFF
+      CFLAGS: '-DUNICODE -D_UNICODE'
 
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       GENERATOR: "Visual Studio 15 2017"
@@ -92,7 +164,17 @@ environment:
 
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       GENERATOR: "Visual Studio 15 2017"
+      BUILD_SHARED_LIBS: ON
+      CFLAGS: '/DUNICODE /D_UNICODE'
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      GENERATOR: "Visual Studio 15 2017"
       BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      GENERATOR: "Visual Studio 15 2017"
+      BUILD_SHARED_LIBS: OFF
+      CFLAGS: '/DUNICODE /D_UNICODE'
   
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "Visual Studio 14 2015"
@@ -100,7 +182,17 @@ environment:
 
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "Visual Studio 14 2015"
+      BUILD_SHARED_LIBS: ON
+      CFLAGS: '/DUNICODE /D_UNICODE'
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "Visual Studio 14 2015"
       BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "Visual Studio 14 2015"
+      BUILD_SHARED_LIBS: OFF
+      CFLAGS: '/DUNICODE /D_UNICODE'
 
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "Visual Studio 12 2013"
@@ -108,7 +200,17 @@ environment:
 
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       GENERATOR: "Visual Studio 12 2013"
+      BUILD_SHARED_LIBS: ON
+      CFLAGS: '/DUNICODE /D_UNICODE'
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "Visual Studio 12 2013"
       BUILD_SHARED_LIBS: OFF
+
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      GENERATOR: "Visual Studio 12 2013"
+      BUILD_SHARED_LIBS: OFF
+      CFLAGS: '/DUNICODE /D_UNICODE'
 
 platform:
   - Win32
