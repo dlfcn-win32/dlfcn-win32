@@ -50,15 +50,6 @@
 #define snprintf sprintf_s
 #endif
 
-#ifdef UNICODE
-#include <wchar.h>
-#define CHAR	wchar_t
-#define UNICODE_L(s)	L##s
-#else
-#define CHAR	char
-#define UNICODE_L(s)	s
-#endif
-
 /* Note:
  * MSDN says these functions are not thread-safe. We make no efforts to have
  * any kind of thread safety.
@@ -142,11 +133,11 @@ static void local_rem( HMODULE hModule )
  * MSDN says the buffer cannot be larger than 64K bytes, so we set it to
  * the limit.
  */
-static CHAR error_buffer[65535];
-static CHAR *current_error;
+static char error_buffer[65535];
+static char *current_error;
 static char dlerror_buffer[65536];
 
-static int copy_string( CHAR *dest, int dest_size, const CHAR *src )
+static int copy_string( char *dest, int dest_size, const char *src )
 {
     int i = 0;
 
@@ -166,7 +157,7 @@ static int copy_string( CHAR *dest, int dest_size, const CHAR *src )
     return i;
 }
 
-static void save_err_str( const CHAR *str )
+static void save_err_str( const char *str )
 {
     DWORD dwMessageId;
     DWORD pos;
@@ -179,10 +170,10 @@ static void save_err_str( const CHAR *str )
     /* Format error message to:
      * "<argument to function that failed>": <Windows localized error message>
       */
-    pos  = copy_string( error_buffer,     sizeof(error_buffer),     UNICODE_L("\"") );
+    pos  = copy_string( error_buffer,     sizeof(error_buffer),     "\"" );
     pos += copy_string( error_buffer+pos, sizeof(error_buffer)-pos, str );
-    pos += copy_string( error_buffer+pos, sizeof(error_buffer)-pos, UNICODE_L("\": ") );
-    pos += FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dwMessageId,
+    pos += copy_string( error_buffer+pos, sizeof(error_buffer)-pos, "\": " );
+    pos += FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dwMessageId,
         MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),
         error_buffer+pos, sizeof(error_buffer)-pos, NULL );
 
@@ -198,19 +189,9 @@ static void save_err_str( const CHAR *str )
 
 static void save_err_ptr_str( const void *ptr )
 {
-    CHAR ptr_buf[19]; /* 0x<pointer> up to 64 bits. */
+    char ptr_buf[19]; /* 0x<pointer> up to 64 bits. */
 
-#ifdef UNICODE
-
-#	if ((defined(_WIN32) || defined(WIN32)) && (defined(_MSC_VER)) )
-    swprintf_s( ptr_buf, 19, UNICODE_L("0x%p"), ptr );
-#	else
-    swprintf(ptr_buf, 19, UNICODE_L("0x%p"), ptr);
-#	endif
-
-#else
     snprintf( ptr_buf, 19, "0x%p", ptr );
-#endif
 
     save_err_str( ptr_buf );
 }
@@ -246,7 +227,7 @@ void *dlopen( const char *file, int mode )
     {
         HANDLE hCurrentProc;
         DWORD dwProcModsBefore, dwProcModsAfter;
-        CHAR lpFileName[MAX_PATH];
+        char lpFileName[MAX_PATH];
         size_t i;
 
         /* MSDN says backslashes *must* be used instead of forward slashes. */
@@ -271,7 +252,7 @@ void *dlopen( const char *file, int mode )
          * to UNIX's search paths (start with system folders instead of current
          * folder).
          */
-        hModule = LoadLibraryEx(lpFileName, NULL, 
+        hModule = LoadLibraryExA(lpFileName, NULL, 
                                 LOAD_WITH_ALTERED_SEARCH_PATH );
 
         if( EnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
@@ -330,11 +311,6 @@ void *dlsym( void *handle, const char *name )
     HMODULE hCaller;
     HMODULE hModule;
     HANDLE hCurrentProc;
-
-#ifdef UNICODE
-    wchar_t namew[MAX_PATH];
-    wmemset(namew, 0, MAX_PATH);
-#endif
 
     current_error = NULL;
     symbol = NULL;
@@ -426,23 +402,7 @@ void *dlsym( void *handle, const char *name )
 end:
     if( symbol == NULL )
     {
-#ifdef UNICODE
-        size_t converted_chars;
-
-        size_t str_len = strlen(name) + 1;
-
-#if ((defined(_WIN32) || defined(WIN32)) && (defined(_MSC_VER)) )
-        errno_t err = mbstowcs_s(&converted_chars, namew, str_len, name, str_len);
-        if (err != 0)
-            return NULL;
-#else
-        mbstowcs(namew, name, str_len);
-#endif
-
-        save_err_str( namew );
-#else
         save_err_str( name );
-#endif
     }
 
     //  warning C4054: 'type cast' : from function pointer 'FARPROC' to data pointer 'void *'
@@ -462,26 +422,7 @@ char *dlerror( void )
         return NULL;
     }
 
-#ifdef UNICODE
-    errno_t err = 0;
-    size_t converted_chars = 0;
-    size_t str_len = wcslen(current_error) + 1;
-    memset(error_pointer, 0, 65535);
-
-#	if ((defined(_WIN32) || defined(WIN32)) && (defined(_MSC_VER)) )
-    err = wcstombs_s(&converted_chars, 
-        error_pointer, str_len * sizeof(char),
-        current_error, str_len * sizeof(wchar_t));
-
-    if (err != 0)
-        return NULL;
-#	else
-    wcstombs(error_pointer, current_error, str_len);
-#	endif
-
-#else
     memcpy(error_pointer, current_error, strlen(current_error) + 1);
-#endif
 
     /* POSIX says that invoking dlerror( ) a second time, immediately following
      * a prior invocation, shall result in NULL being returned.
