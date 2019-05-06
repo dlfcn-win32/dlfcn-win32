@@ -24,9 +24,7 @@
 #include <stdlib.h>
 #include <crtdbg.h>
 #endif
-#define PSAPI_VERSION 1
 #include <windows.h>
-#include <psapi.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -192,6 +190,24 @@ static void save_err_ptr_str( const void *ptr )
     save_err_str( ptr_buf );
 }
 
+/* Load Psapi.dll at runtime, this avoids linking caveat */
+static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded )
+{
+    static BOOL (WINAPI *EnumProcessModulesPtr)(HANDLE, HMODULE *, DWORD, LPDWORD);
+    HMODULE psapi;
+
+    if( !EnumProcessModulesPtr )
+    {
+        psapi = LoadLibraryA( "Psapi.dll" );
+        if( psapi )
+            EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) GetProcAddress( psapi, "EnumProcessModules" );
+        if( !EnumProcessModulesPtr )
+            return 0;
+    }
+
+    return EnumProcessModulesPtr( hProcess, lphModule, cb, lpcbNeeded );
+}
+
 void *dlopen( const char *file, int mode )
 {
     HMODULE hModule;
@@ -240,7 +256,7 @@ void *dlopen( const char *file, int mode )
 
         hCurrentProc = GetCurrentProcess( );
 
-        if( EnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsBefore ) == 0 )
+        if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsBefore ) == 0 )
             dwProcModsBefore = 0;
 
         /* POSIX says the search path is implementation-defined.
@@ -251,7 +267,7 @@ void *dlopen( const char *file, int mode )
         hModule = LoadLibraryExA(lpFileName, NULL, 
                                 LOAD_WITH_ALTERED_SEARCH_PATH );
 
-        if( EnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
+        if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
             dwProcModsAfter = 0;
 
         /* If the object was loaded with RTLD_LOCAL, add it to list of local
@@ -366,12 +382,12 @@ void *dlsym( void *handle, const char *name )
          * if we want to get ALL loaded module including those in linked DLLs,
          * we have to use EnumProcessModules( ).
          */
-        if( EnumProcessModules( hCurrentProc, NULL, 0, &dwSize ) != 0 )
+        if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwSize ) != 0 )
         {
             modules = malloc( dwSize );
             if( modules )
             {
-                if( EnumProcessModules( hCurrentProc, modules, dwSize, &cbNeeded ) != 0 && dwSize == cbNeeded )
+                if( MyEnumProcessModules( hCurrentProc, modules, dwSize, &cbNeeded ) != 0 && dwSize == cbNeeded )
                 {
                     for( i = 0; i < dwSize / sizeof( HMODULE ); i++ )
                     {
