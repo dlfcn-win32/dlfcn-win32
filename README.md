@@ -43,12 +43,6 @@ target_link_libraries(<target> ${CMAKE_DL_LIBS})
 ...
 ~~~
 
-### Linking caveat  
-This library uses the Process Status API in Windows (`psapi.lib`). If you are
-linking to the static `dl.lib` or `libdl.a`, then you would need to explicitly
-add `psapi.lib` or `-lpsapi` to your linking command, depending on if MinGW is
-used.
-
 Author
 ------
 

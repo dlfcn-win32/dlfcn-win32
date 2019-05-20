@@ -3,7 +3,6 @@
 #
 include config.mak
 CFLAGS = -Wall -O3 -fomit-frame-pointer
-LIBS  += -lpsapi
 
 ifeq ($(BUILD_SHARED),yes)
 	TARGETS += libdl.dll
@@ -34,7 +33,7 @@ libdl.a: $(LIB_OBJS)
 	$(RANLIB) libdl.a
 
 libdl.dll: $(LIB_OBJS)
-	$(CC) $(SHFLAGS) -shared -o $@ $^ $(LIBS)
+	$(CC) $(SHFLAGS) -shared -o $@ $^
 
 libdl.lib: libdl.dll
 	$(LIBCMD) /machine:i386 /def:libdl.def
@@ -54,20 +53,20 @@ static-install: include-install
 	mkdir -p $(DESTDIR)$(libdir)
 	cp libdl.a $(DESTDIR)$(libdir)
 
-lib-install: $(LIBS)
+lib-install:
 	mkdir -p $(DESTDIR)$(libdir)
 	cp libdl.lib $(DESTDIR)$(libdir)
 
 install: $(INSTALL)
 
 test.exe: test.o $(TARGETS)
-	$(CC) -o $@ $< -L. -ldl $(LIBS)
+	$(CC) -o $@ $< -L. -ldl
 
 testdll.dll: testdll.c
 	$(CC) -shared -o $@ $^
 
 testdll2.dll: testdll2.c $(TARGETS)
-	$(CC) -shared -o $@ $< -L. -ldl $(LIBS)
+	$(CC) -shared -o $@ $< -L. -ldl
 
 testdll3.dll: testdll3.c
 	$(CC) -shared -o $@ $^
