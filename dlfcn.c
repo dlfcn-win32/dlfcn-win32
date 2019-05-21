@@ -157,7 +157,7 @@ static void save_err_str( const char *str )
     error_buffer[pos++] = ':';
     error_buffer[pos++] = ' ';
 
-    ret = FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dwMessageId,
+    ret = FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, dwMessageId,
         MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),
         error_buffer+pos, (DWORD) (sizeof(error_buffer)-pos), NULL );
     pos += ret;
