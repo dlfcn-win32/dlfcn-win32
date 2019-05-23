@@ -85,6 +85,9 @@ int main()
     HMODULE library3;
     char toolongfile[32767];
     DWORD code;
+    char nonlibraryfile[MAX_PATH];
+    HANDLE tempfile;
+    DWORD dummy;
 
 #ifdef _DEBUG
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
@@ -94,6 +97,64 @@ int main()
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
 #endif
+
+    ret = GetTempPathA( sizeof( nonlibraryfile ) - sizeof( "temp.dll" ), nonlibraryfile );
+    if( ret == 0 || ret > sizeof( nonlibraryfile ) - sizeof( "temp.dll" ) )
+    {
+        printf( "ERROR\tGetTempPath failed\n" );
+        RETURN_ERROR;
+    }
+
+    memcpy( nonlibraryfile + ret, "temp.dll", sizeof( "temp.dll" ) );
+
+    tempfile = CreateFileA( (LPCSTR) nonlibraryfile, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL );
+    if( tempfile == INVALID_HANDLE_VALUE )
+    {
+        printf( "ERROR\tCannot create temporary file %s: %lu\n", nonlibraryfile, (unsigned long)GetLastError( ) );
+        RETURN_ERROR;
+    }
+
+    WriteFile( tempfile, "test content", 12, &dummy, NULL );
+
+    CloseHandle( tempfile );
+
+    library3 = LoadLibraryA( nonlibraryfile );
+    code = GetLastError( );
+    if( library3 )
+    {
+        printf( "ERROR\tNon-library file %s was opened via WINAPI\n", nonlibraryfile );
+        CloseHandle( library3 );
+        DeleteFileA( nonlibraryfile );
+        RETURN_ERROR;
+    }
+    else if( code != ERROR_BAD_EXE_FORMAT )
+    {
+        printf( "ERROR\tNon-library file %s was processed via WINAPI: %lu\n", nonlibraryfile, (unsigned long)code );
+        DeleteFileA( nonlibraryfile );
+        RETURN_ERROR;
+    }
+    else
+        printf( "SUCCESS\tCould not open non-library file %s via WINAPI: %lu\n", nonlibraryfile, (unsigned long)code );
+
+    library = dlopen( nonlibraryfile, RTLD_GLOBAL );
+    if( library )
+    {
+        printf( "ERROR\tNon-library file %s was opened via dlopen\n", nonlibraryfile );
+        dlclose( library );
+        DeleteFileA( nonlibraryfile );
+        RETURN_ERROR;
+    }
+    error = dlerror( );
+    if( !error )
+    {
+        printf( "ERROR\tNo error from dlopen for non-library file\n" );
+        DeleteFileA( nonlibraryfile );
+        RETURN_ERROR;
+    }
+    else
+        printf( "SUCCESS\tCould not open non-library file %s: %s\n", nonlibraryfile, error );
+
+    DeleteFileA( nonlibraryfile );
 
     library = dlopen( "nonexistentfile.dll", RTLD_GLOBAL );
     if( library )
