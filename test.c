@@ -83,6 +83,8 @@ int main()
     int (*nonexistentfunction)( void );
     int ret;
     HMODULE library3;
+    char toolongfile[32767];
+    DWORD code;
 
 #ifdef _DEBUG
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
@@ -92,6 +94,54 @@ int main()
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
 #endif
+
+    library = dlopen( "nonexistentfile.dll", RTLD_GLOBAL );
+    if( library )
+    {
+        printf( "ERROR\tNon-existent file nonexistentfile.dll was opened via dlopen\n" );
+        RETURN_ERROR;
+    }
+    error = dlerror( );
+    if( !error )
+    {
+        printf( "ERROR\tNo error from dlopen for non-existent file\n" );
+        RETURN_ERROR;
+    }
+    else
+        printf( "SUCCESS\tCould not open non-existent file nonexistentfile.dll: %s\n", error );
+
+    memset( toolongfile, 'X', sizeof( toolongfile ) - 5 );
+    memcpy( toolongfile + sizeof( toolongfile ) - 5, ".dll", 5 );
+
+    library = dlopen( toolongfile, RTLD_GLOBAL );
+    if( library )
+    {
+        printf( "ERROR\tFile with too long file name was opened via dlopen\n" );
+        RETURN_ERROR;
+    }
+    error = dlerror( );
+    if( !error )
+    {
+        printf( "ERROR\tNo error from dlopen for file with too long file name\n" );
+        RETURN_ERROR;
+    }
+    else
+        printf( "SUCCESS\tCould not open file with too long file name: %s\n", error );
+
+    library3 = LoadLibraryA( toolongfile );
+    code = GetLastError( );
+    if( library3 )
+    {
+        printf( "ERROR\tFile with too long file name was opened via WINAPI\n" );
+        RETURN_ERROR;
+    }
+    else if( code != ERROR_FILENAME_EXCED_RANGE )
+    {
+        printf( "ERROR\tFile with too long file name was processed via WINAPI: %lu\n", (unsigned long)code );
+        RETURN_ERROR;
+    }
+    else
+        printf( "SUCCESS\tCould not open file with too long file name via WINAPI: %lu\n", (unsigned long)code );
 
     library2 = dlopen( "testdll2.dll", RTLD_GLOBAL );
     if( !library2 )
