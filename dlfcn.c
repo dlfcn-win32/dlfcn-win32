@@ -267,24 +267,33 @@ void *dlopen( const char *file, int mode )
         hModule = LoadLibraryExA(lpFileName, NULL, 
                                 LOAD_WITH_ALTERED_SEARCH_PATH );
 
-        if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
-            dwProcModsAfter = 0;
-
-        /* If the object was loaded with RTLD_LOCAL, add it to list of local
-         * objects, so that its symbols cannot be retrieved even if the handle for
-         * the original program file is passed. POSIX says that if the same
-         * file is specified in multiple invocations, and any of them are
-         * RTLD_GLOBAL, even if any further invocations use RTLD_LOCAL, the
-         * symbols will remain global. If number of loaded modules was not
-         * changed after calling LoadLibraryEx(), it means that library was
-         * already loaded.
-         */
         if( !hModule )
+        {
             save_err_str( lpFileName );
-        else if( (mode & RTLD_LOCAL) && dwProcModsBefore != dwProcModsAfter )
-            local_add( hModule );
-        else if( !(mode & RTLD_LOCAL) && dwProcModsBefore == dwProcModsAfter )
-            local_rem( hModule );
+        }
+        else
+        {
+            if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
+                dwProcModsAfter = 0;
+
+            /* If the object was loaded with RTLD_LOCAL, add it to list of local
+             * objects, so that its symbols cannot be retrieved even if the handle for
+             * the original program file is passed. POSIX says that if the same
+             * file is specified in multiple invocations, and any of them are
+             * RTLD_GLOBAL, even if any further invocations use RTLD_LOCAL, the
+             * symbols will remain global. If number of loaded modules was not
+             * changed after calling LoadLibraryEx(), it means that library was
+             * already loaded.
+             */
+            if( (mode & RTLD_LOCAL) && dwProcModsBefore != dwProcModsAfter )
+            {
+                local_add( hModule );
+            }
+            else if( !(mode & RTLD_LOCAL) && dwProcModsBefore == dwProcModsAfter )
+            {
+                local_rem( hModule );
+            }
+        }
     }
 
     /* Return to previous state of the error-mode bit flags. */
