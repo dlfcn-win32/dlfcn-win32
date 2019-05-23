@@ -72,34 +72,36 @@ static local_object *local_search( HMODULE hModule )
     return NULL;
 }
 
-static void local_add( HMODULE hModule )
+static BOOL local_add( HMODULE hModule )
 {
     local_object *pobject;
     local_object *nobject;
 
     if( hModule == NULL )
-        return;
+        return TRUE;
 
     pobject = local_search( hModule );
 
     /* Do not add object again if it's already on the list */
     if( pobject )
-        return;
+        return TRUE;
 
     for( pobject = &first_object; pobject->next; pobject = pobject->next );
 
     nobject = (local_object*) malloc( sizeof( local_object ) );
 
-    /* Should this be enough to fail local_add, and therefore also fail
-     * dlopen?
-     */
     if( !nobject )
-        return;
+    {
+        SetLastError( ERROR_NOT_ENOUGH_MEMORY );
+        return FALSE;
+    }
 
     pobject->next = nobject;
     nobject->next = NULL;
     nobject->previous = pobject;
     nobject->hModule = hModule;
+
+    return TRUE;
 }
 
 static void local_rem( HMODULE hModule )
@@ -287,7 +289,12 @@ void *dlopen( const char *file, int mode )
              */
             if( (mode & RTLD_LOCAL) && dwProcModsBefore != dwProcModsAfter )
             {
-                local_add( hModule );
+                if( !local_add( hModule ) )
+                {
+                    save_err_str( lpFileName );
+                    FreeLibrary( hModule );
+                    hModule = NULL;
+                }
             }
             else if( !(mode & RTLD_LOCAL) && dwProcModsBefore == dwProcModsAfter )
             {
