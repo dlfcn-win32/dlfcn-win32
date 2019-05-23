@@ -201,11 +201,14 @@ int main()
         CLOSE_GLOBAL;
         RETURN_ERROR;
     }
-    else {
-        error = dlerror( );
-        printf( "SUCCESS\tCould not get nonexistent symbol from library handle: %s\n",
-                error ? error : "" );
+    error = dlerror( );
+    if( !error )
+    {
+        printf( "ERROR\tNo error from dlsym for nonexistent symbol\n" );
+        RETURN_ERROR;
     }
+    else
+        printf( "SUCCESS\tCould not get nonexistent symbol from library handle: %s\n", error );
 
     function = dlsym( global, "function" );
     if( !function )
@@ -231,11 +234,14 @@ int main()
         CLOSE_GLOBAL;
         RETURN_ERROR;
     }
-    else {
-        error = dlerror( );
-        printf( "SUCCESS\tCould not get nonexistent symbol from global handle: %s\n",
-                error ? error : "" );
+    error = dlerror( );
+    if( !error )
+    {
+        printf( "ERROR\tNo error from dlsym for nonexistent symbol\n" );
+        RETURN_ERROR;
     }
+    else
+        printf( "SUCCESS\tCould not get nonexistent symbol from global handle: %s\n", error );
 
     ret = dlclose( library );
     if( ret )
@@ -293,11 +299,14 @@ int main()
         CLOSE_GLOBAL;
         RETURN_ERROR;
     }
-    else {
-        error = dlerror( );
-        printf( "SUCCESS\tCould not get nonexistent symbol from library handle: %s\n",
-                error ? error : "" );
+    error = dlerror( );
+    if( !error )
+    {
+        printf( "ERROR\tNo error from dlsym for nonexistent symbol\n" );
+        RETURN_ERROR;
     }
+    else
+        printf( "SUCCESS\tCould not get nonexistent symbol from library handle: %s\n", error );
 
     function = dlsym( global, "function" );
     if( function )
@@ -321,11 +330,14 @@ int main()
         CLOSE_GLOBAL;
         RETURN_ERROR;
     }
-    else {
-        error = dlerror( );
-        printf( "SUCCESS\tDid not get nonexistent local symbol from global handle: %s\n",
-                error ? error : "" );
+    error = dlerror( );
+    if( !error )
+    {
+        printf( "ERROR\tNo error from dlsym for nonexistent symbol\n" );
+        RETURN_ERROR;
     }
+    else
+        printf( "SUCCESS\tDid not get nonexistent local symbol from global handle: %s\n", error );
 
     library = dlopen( "testdll.dll", RTLD_GLOBAL );
     if( !library )
@@ -363,10 +375,15 @@ int main()
         CLOSE_GLOBAL;
         RETURN_ERROR;
     }
-    else {
-        error = dlerror( );
-        printf( "SUCCESS\tCould not get nonexistent symbol from global handle: %s\n",
-                error ? error : "" );
+    error = dlerror( );
+    if( !error )
+    {
+        printf( "ERROR\tNo error from dlsym for nonexistent symbol\n" );
+        RETURN_ERROR;
+    }
+    else
+    {
+        printf( "SUCCESS\tCould not get nonexistent symbol from global handle: %s\n", error );
                 
         /* Test that the second call to dlerror() returns null as in the specs 
            See https://github.com/dlfcn-win32/dlfcn-win32/issues/34 */
