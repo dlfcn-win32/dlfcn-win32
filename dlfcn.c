@@ -242,63 +242,71 @@ void *dlopen( const char *file, int mode )
         HANDLE hCurrentProc;
         DWORD dwProcModsBefore, dwProcModsAfter;
         char lpFileName[MAX_PATH];
-        size_t i;
+        size_t i, len;
 
-        /* MSDN says backslashes *must* be used instead of forward slashes. */
-        for( i = 0 ; i < sizeof(lpFileName) - 1 ; i ++ )
+        len = strlen( file );
+
+        if( len >= sizeof( lpFileName ) )
         {
-            if( !file[i] )
-                break;
-            else if( file[i] == '/' )
-                lpFileName[i] = '\\';
-            else
-                lpFileName[i] = file[i];
-        }
-        lpFileName[i] = '\0';
-
-        hCurrentProc = GetCurrentProcess( );
-
-        if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsBefore ) == 0 )
-            dwProcModsBefore = 0;
-
-        /* POSIX says the search path is implementation-defined.
-         * LOAD_WITH_ALTERED_SEARCH_PATH is used to make it behave more closely
-         * to UNIX's search paths (start with system folders instead of current
-         * folder).
-         */
-        hModule = LoadLibraryExA(lpFileName, NULL, 
-                                LOAD_WITH_ALTERED_SEARCH_PATH );
-
-        if( !hModule )
-        {
-            save_err_str( lpFileName );
+            SetLastError( ERROR_FILENAME_EXCED_RANGE );
+            save_err_str( file );
+            hModule = NULL;
         }
         else
         {
-            if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
-                dwProcModsAfter = 0;
-
-            /* If the object was loaded with RTLD_LOCAL, add it to list of local
-             * objects, so that its symbols cannot be retrieved even if the handle for
-             * the original program file is passed. POSIX says that if the same
-             * file is specified in multiple invocations, and any of them are
-             * RTLD_GLOBAL, even if any further invocations use RTLD_LOCAL, the
-             * symbols will remain global. If number of loaded modules was not
-             * changed after calling LoadLibraryEx(), it means that library was
-             * already loaded.
-             */
-            if( (mode & RTLD_LOCAL) && dwProcModsBefore != dwProcModsAfter )
+            /* MSDN says backslashes *must* be used instead of forward slashes. */
+            for( i = 0; i < len; i++ )
             {
-                if( !local_add( hModule ) )
-                {
-                    save_err_str( lpFileName );
-                    FreeLibrary( hModule );
-                    hModule = NULL;
-                }
+                if( file[i] == '/' )
+                    lpFileName[i] = '\\';
+                else
+                    lpFileName[i] = file[i];
             }
-            else if( !(mode & RTLD_LOCAL) && dwProcModsBefore == dwProcModsAfter )
+            lpFileName[len] = '\0';
+
+            hCurrentProc = GetCurrentProcess( );
+
+            if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsBefore ) == 0 )
+                dwProcModsBefore = 0;
+
+            /* POSIX says the search path is implementation-defined.
+             * LOAD_WITH_ALTERED_SEARCH_PATH is used to make it behave more closely
+             * to UNIX's search paths (start with system folders instead of current
+             * folder).
+             */
+            hModule = LoadLibraryExA( lpFileName, NULL, LOAD_WITH_ALTERED_SEARCH_PATH );
+
+            if( !hModule )
             {
-                local_rem( hModule );
+                save_err_str( lpFileName );
+            }
+            else
+            {
+                if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
+                    dwProcModsAfter = 0;
+
+                /* If the object was loaded with RTLD_LOCAL, add it to list of local
+                 * objects, so that its symbols cannot be retrieved even if the handle for
+                 * the original program file is passed. POSIX says that if the same
+                 * file is specified in multiple invocations, and any of them are
+                 * RTLD_GLOBAL, even if any further invocations use RTLD_LOCAL, the
+                 * symbols will remain global. If number of loaded modules was not
+                 * changed after calling LoadLibraryEx(), it means that library was
+                 * already loaded.
+                 */
+                if( (mode & RTLD_LOCAL) && dwProcModsBefore != dwProcModsAfter )
+                {
+                    if( !local_add( hModule ) )
+                    {
+                        save_err_str( lpFileName );
+                        FreeLibrary( hModule );
+                        hModule = NULL;
+                    }
+                }
+                else if( !(mode & RTLD_LOCAL) && dwProcModsBefore == dwProcModsAfter )
+                {
+                    local_rem( hModule );
+                }
             }
         }
     }
