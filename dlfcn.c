@@ -362,10 +362,17 @@ void *dlsym( void *handle, const char *name )
         size_t sLen;
         sLen = VirtualQueryEx( hCurrentProc, _ReturnAddress(), &info, sizeof( info ) );
         if( sLen != sizeof( info ) )
+        {
+            if( sLen != 0 )
+                SetLastError( ERROR_INVALID_PARAMETER );
             goto end;
+        }
         hCaller = (HMODULE) info.AllocationBase;
-        if(!hCaller)
+        if( !hCaller )
+        {
+            SetLastError( ERROR_INVALID_PARAMETER );
             goto end;
+        }
     }
 
     if( handle != RTLD_NEXT )
@@ -423,6 +430,8 @@ void *dlsym( void *handle, const char *name )
 end:
     if( symbol == NULL )
     {
+        if( GetLastError() == 0 )
+            SetLastError( ERROR_PROC_NOT_FOUND );
         save_err_str( name );
     }
 
