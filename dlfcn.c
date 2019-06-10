@@ -72,34 +72,36 @@ static local_object *local_search( HMODULE hModule )
     return NULL;
 }
 
-static void local_add( HMODULE hModule )
+static BOOL local_add( HMODULE hModule )
 {
     local_object *pobject;
     local_object *nobject;
 
     if( hModule == NULL )
-        return;
+        return TRUE;
 
     pobject = local_search( hModule );
 
     /* Do not add object again if it's already on the list */
     if( pobject )
-        return;
+        return TRUE;
 
     for( pobject = &first_object; pobject->next; pobject = pobject->next );
 
     nobject = (local_object*) malloc( sizeof( local_object ) );
 
-    /* Should this be enough to fail local_add, and therefore also fail
-     * dlopen?
-     */
     if( !nobject )
-        return;
+    {
+        SetLastError( ERROR_NOT_ENOUGH_MEMORY );
+        return FALSE;
+    }
 
     pobject->next = nobject;
     nobject->next = NULL;
     nobject->previous = pobject;
     nobject->hModule = hModule;
+
+    return TRUE;
 }
 
 static void local_rem( HMODULE hModule )
@@ -240,51 +242,73 @@ void *dlopen( const char *file, int mode )
         HANDLE hCurrentProc;
         DWORD dwProcModsBefore, dwProcModsAfter;
         char lpFileName[MAX_PATH];
-        size_t i;
+        size_t i, len;
 
-        /* MSDN says backslashes *must* be used instead of forward slashes. */
-        for( i = 0 ; i < sizeof(lpFileName) - 1 ; i ++ )
+        len = strlen( file );
+
+        if( len >= sizeof( lpFileName ) )
         {
-            if( !file[i] )
-                break;
-            else if( file[i] == '/' )
-                lpFileName[i] = '\\';
-            else
-                lpFileName[i] = file[i];
+            SetLastError( ERROR_FILENAME_EXCED_RANGE );
+            save_err_str( file );
+            hModule = NULL;
         }
-        lpFileName[i] = '\0';
+        else
+        {
+            /* MSDN says backslashes *must* be used instead of forward slashes. */
+            for( i = 0; i < len; i++ )
+            {
+                if( file[i] == '/' )
+                    lpFileName[i] = '\\';
+                else
+                    lpFileName[i] = file[i];
+            }
+            lpFileName[len] = '\0';
 
-        hCurrentProc = GetCurrentProcess( );
+            hCurrentProc = GetCurrentProcess( );
 
-        if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsBefore ) == 0 )
-            dwProcModsBefore = 0;
+            if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsBefore ) == 0 )
+                dwProcModsBefore = 0;
 
-        /* POSIX says the search path is implementation-defined.
-         * LOAD_WITH_ALTERED_SEARCH_PATH is used to make it behave more closely
-         * to UNIX's search paths (start with system folders instead of current
-         * folder).
-         */
-        hModule = LoadLibraryExA(lpFileName, NULL, 
-                                LOAD_WITH_ALTERED_SEARCH_PATH );
+            /* POSIX says the search path is implementation-defined.
+             * LOAD_WITH_ALTERED_SEARCH_PATH is used to make it behave more closely
+             * to UNIX's search paths (start with system folders instead of current
+             * folder).
+             */
+            hModule = LoadLibraryExA( lpFileName, NULL, LOAD_WITH_ALTERED_SEARCH_PATH );
 
-        if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
-            dwProcModsAfter = 0;
+            if( !hModule )
+            {
+                save_err_str( lpFileName );
+            }
+            else
+            {
+                if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
+                    dwProcModsAfter = 0;
 
-        /* If the object was loaded with RTLD_LOCAL, add it to list of local
-         * objects, so that its symbols cannot be retrieved even if the handle for
-         * the original program file is passed. POSIX says that if the same
-         * file is specified in multiple invocations, and any of them are
-         * RTLD_GLOBAL, even if any further invocations use RTLD_LOCAL, the
-         * symbols will remain global. If number of loaded modules was not
-         * changed after calling LoadLibraryEx(), it means that library was
-         * already loaded.
-         */
-        if( !hModule )
-            save_err_str( lpFileName );
-        else if( (mode & RTLD_LOCAL) && dwProcModsBefore != dwProcModsAfter )
-            local_add( hModule );
-        else if( !(mode & RTLD_LOCAL) && dwProcModsBefore == dwProcModsAfter )
-            local_rem( hModule );
+                /* If the object was loaded with RTLD_LOCAL, add it to list of local
+                 * objects, so that its symbols cannot be retrieved even if the handle for
+                 * the original program file is passed. POSIX says that if the same
+                 * file is specified in multiple invocations, and any of them are
+                 * RTLD_GLOBAL, even if any further invocations use RTLD_LOCAL, the
+                 * symbols will remain global. If number of loaded modules was not
+                 * changed after calling LoadLibraryEx(), it means that library was
+                 * already loaded.
+                 */
+                if( (mode & RTLD_LOCAL) && dwProcModsBefore != dwProcModsAfter )
+                {
+                    if( !local_add( hModule ) )
+                    {
+                        save_err_str( lpFileName );
+                        FreeLibrary( hModule );
+                        hModule = NULL;
+                    }
+                }
+                else if( !(mode & RTLD_LOCAL) && dwProcModsBefore == dwProcModsAfter )
+                {
+                    local_rem( hModule );
+                }
+            }
+        }
     }
 
     /* Return to previous state of the error-mode bit flags. */
@@ -353,10 +377,17 @@ void *dlsym( void *handle, const char *name )
         size_t sLen;
         sLen = VirtualQueryEx( hCurrentProc, _ReturnAddress(), &info, sizeof( info ) );
         if( sLen != sizeof( info ) )
+        {
+            if( sLen != 0 )
+                SetLastError( ERROR_INVALID_PARAMETER );
             goto end;
+        }
         hCaller = (HMODULE) info.AllocationBase;
-        if(!hCaller)
+        if( !hCaller )
+        {
+            SetLastError( ERROR_INVALID_PARAMETER );
             goto end;
+        }
     }
 
     if( handle != RTLD_NEXT )
@@ -414,6 +445,8 @@ void *dlsym( void *handle, const char *name )
 end:
     if( symbol == NULL )
     {
+        if( GetLastError() == 0 )
+            SetLastError( ERROR_PROC_NOT_FOUND );
         save_err_str( name );
     }
 
