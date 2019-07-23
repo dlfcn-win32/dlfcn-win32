@@ -88,6 +88,7 @@ int main()
     char nonlibraryfile[MAX_PATH];
     HANDLE tempfile;
     DWORD dummy;
+    UINT uMode;
 
 #ifdef _DEBUG
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
@@ -118,8 +119,10 @@ int main()
 
     CloseHandle( tempfile );
 
+    uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
     library3 = LoadLibraryA( nonlibraryfile );
     code = GetLastError( );
+    SetErrorMode( uMode );
     if( library3 )
     {
         printf( "ERROR\tNon-library file %s was opened via WINAPI\n", nonlibraryfile );
@@ -189,8 +192,10 @@ int main()
     else
         printf( "SUCCESS\tCould not open file with too long file name: %s\n", error );
 
+    uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
     library3 = LoadLibraryA( toolongfile );
     code = GetLastError( );
+    SetErrorMode( uMode );
     if( library3 )
     {
         printf( "ERROR\tFile with too long file name was opened via WINAPI\n" );
@@ -526,7 +531,9 @@ int main()
         printf("SUCCESS\tGot symbol from global handle: %p\n", function);
     
 
+    uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
     library3 = LoadLibraryA("testdll3.dll");
+    SetErrorMode( uMode );
     if (!library3)
     {
         printf( "ERROR\tCould not open library3 via WINAPI\n" );
