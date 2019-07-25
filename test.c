@@ -86,6 +86,7 @@ int main()
     char toolongfile[32767];
     DWORD code;
     char nonlibraryfile[MAX_PATH];
+    DWORD length;
     HANDLE tempfile;
     DWORD dummy;
     UINT uMode;
@@ -99,14 +100,14 @@ int main()
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
 #endif
 
-    ret = GetTempPathA( sizeof( nonlibraryfile ) - sizeof( "temp.dll" ), nonlibraryfile );
-    if( ret == 0 || ret > sizeof( nonlibraryfile ) - sizeof( "temp.dll" ) )
+    length = GetTempPathA( sizeof( nonlibraryfile ) - sizeof( "temp.dll" ), nonlibraryfile );
+    if( length == 0 || length > sizeof( nonlibraryfile ) - sizeof( "temp.dll" ) )
     {
         printf( "ERROR\tGetTempPath failed\n" );
         RETURN_ERROR;
     }
 
-    memcpy( nonlibraryfile + ret, "temp.dll", sizeof( "temp.dll" ) );
+    memcpy( nonlibraryfile + length, "temp.dll", sizeof( "temp.dll" ) );
 
     tempfile = CreateFileA( (LPCSTR) nonlibraryfile, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL );
     if( tempfile == INVALID_HANDLE_VALUE )
