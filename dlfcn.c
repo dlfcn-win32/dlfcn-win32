@@ -439,6 +439,11 @@ void *dlsym( void *handle, const char *name )
                 }
                 free( modules );
             }
+            else
+            {
+                SetLastError( ERROR_NOT_ENOUGH_MEMORY );
+                goto end;
+            }
         }
     }
 
