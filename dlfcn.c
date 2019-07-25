@@ -30,7 +30,6 @@
 
 #ifdef _MSC_VER
 /* https://docs.microsoft.com/en-us/cpp/intrinsics/returnaddress */
-#include <intrin.h>
 #pragma intrinsic(_ReturnAddress)
 #else
 /* https://gcc.gnu.org/onlinedocs/gcc/Return-Address.html */
