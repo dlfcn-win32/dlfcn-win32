@@ -454,11 +454,7 @@ end:
         save_err_str( name );
     }
 
-    //  warning C4054: 'type cast' : from function pointer 'FARPROC' to data pointer 'void *'
-#ifdef _MSC_VER
-#pragma warning( suppress: 4054 )
-#endif
-    return (void*) symbol;
+    return *(void **) (&symbol);
 }
 
 char *dlerror( void )
