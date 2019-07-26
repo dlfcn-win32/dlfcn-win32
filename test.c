@@ -253,9 +253,11 @@ int main()
     }
     else
         printf( "SUCCESS\tGot symbol from global handle: %p\n", *(void **) (&fwrite_local) );
-    char * hello_world = "Hello world from local fwrite!\n";
-    fwrite_local(hello_world,sizeof(char),strlen(hello_world),stderr);
-    fflush(stderr);
+    {
+        const char *hello_world = "Hello world from local fwrite!\n";
+        fwrite_local( hello_world, sizeof( char ), strlen( hello_world ), stderr );
+        fflush( stderr );
+    }
 
     *(void **) (&fputs_default) = dlsym( RTLD_DEFAULT, "fputs" );
     if (!fputs_default)
@@ -269,9 +271,11 @@ int main()
     }
     else
         printf( "SUCCESS\tGot symbol from default handle: %p\n", *(void **) (&fputs_default) );
-    char * hello_world_fputs = "Hello world from default fputs!\n";
-    fputs_default(hello_world_fputs, stderr);
-    fflush(stderr);
+    {
+        const char *hello_world_fputs = "Hello world from default fputs!\n";
+        fputs_default( hello_world_fputs, stderr );
+        fflush( stderr );
+    }
 
     *(void **) (&function) = dlsym( library, "function" );
     if( !function )
