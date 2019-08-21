@@ -38,7 +38,7 @@ EXPORT int function2( void )
     char *error;
     int (*function2_orig)(void);
     printf( "Hello, world! from wrapper library\n" );
-    function2_orig = dlsym(RTLD_NEXT, "function2");
+    *(void **) (&function2_orig) = dlsym( RTLD_NEXT, "function2" );
     if (!function2_orig)
     {
         error = dlerror( );

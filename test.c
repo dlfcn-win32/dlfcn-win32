@@ -86,6 +86,7 @@ int main()
     char toolongfile[32767];
     DWORD code;
     char nonlibraryfile[MAX_PATH];
+    DWORD length;
     HANDLE tempfile;
     DWORD dummy;
     UINT uMode;
@@ -99,14 +100,14 @@ int main()
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDOUT);
 #endif
 
-    ret = GetTempPathA( sizeof( nonlibraryfile ) - sizeof( "temp.dll" ), nonlibraryfile );
-    if( ret == 0 || ret > sizeof( nonlibraryfile ) - sizeof( "temp.dll" ) )
+    length = GetTempPathA( sizeof( nonlibraryfile ) - sizeof( "temp.dll" ), nonlibraryfile );
+    if( length == 0 || length > sizeof( nonlibraryfile ) - sizeof( "temp.dll" ) )
     {
         printf( "ERROR\tGetTempPath failed\n" );
         RETURN_ERROR;
     }
 
-    memcpy( nonlibraryfile + ret, "temp.dll", sizeof( "temp.dll" ) );
+    memcpy( nonlibraryfile + length, "temp.dll", sizeof( "temp.dll" ) );
 
     tempfile = CreateFileA( (LPCSTR) nonlibraryfile, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL );
     if( tempfile == INVALID_HANDLE_VALUE )
@@ -240,7 +241,7 @@ int main()
     else
         printf( "SUCCESS\tGot global handle: %p\n", global );
 
-    fwrite_local = dlsym(global, "fwrite");
+    *(void **) (&fwrite_local) = dlsym( global, "fwrite" );
     if (!fwrite_local)
     {
         error = dlerror();
@@ -251,12 +252,14 @@ int main()
         RETURN_ERROR;
     }
     else
-        printf("SUCCESS\tGot symbol from global handle: %p\n", fwrite_local);
-    char * hello_world = "Hello world from local fwrite!\n";
-    fwrite_local(hello_world,sizeof(char),strlen(hello_world),stderr);
-    fflush(stderr);
+        printf( "SUCCESS\tGot symbol from global handle: %p\n", *(void **) (&fwrite_local) );
+    {
+        const char *hello_world = "Hello world from local fwrite!\n";
+        fwrite_local( hello_world, sizeof( char ), strlen( hello_world ), stderr );
+        fflush( stderr );
+    }
 
-    fputs_default = dlsym(RTLD_DEFAULT, "fputs");
+    *(void **) (&fputs_default) = dlsym( RTLD_DEFAULT, "fputs" );
     if (!fputs_default)
     {
         error = dlerror();
@@ -267,12 +270,14 @@ int main()
         RETURN_ERROR;
     }
     else
-        printf("SUCCESS\tGot symbol from default handle: %p\n", fputs_default);
-    char * hello_world_fputs = "Hello world from default fputs!\n";
-    fputs_default(hello_world_fputs, stderr);
-    fflush(stderr);
+        printf( "SUCCESS\tGot symbol from default handle: %p\n", *(void **) (&fputs_default) );
+    {
+        const char *hello_world_fputs = "Hello world from default fputs!\n";
+        fputs_default( hello_world_fputs, stderr );
+        fflush( stderr );
+    }
 
-    function = dlsym( library, "function" );
+    *(void **) (&function) = dlsym( library, "function" );
     if( !function )
     {
         error = dlerror( );
@@ -283,11 +288,11 @@ int main()
         RETURN_ERROR;
     }
     else
-        printf( "SUCCESS\tGot symbol from library handle: %p\n", function );
+        printf( "SUCCESS\tGot symbol from library handle: %p\n", *(void **) (&function) );
 
     RUNFUNC;
 
-    function2_from_library2 = dlsym( library2, "function2" );
+    *(void **) (&function2_from_library2) = dlsym( library2, "function2" );
     if( !function2_from_library2 )
     {
         error = dlerror( );
@@ -298,7 +303,7 @@ int main()
         RETURN_ERROR;
     }
     else
-        printf( "SUCCESS\tGot symbol from library2 handle: %p\n", function2_from_library2 );
+        printf( "SUCCESS\tGot symbol from library2 handle: %p\n", *(void **) (&function2_from_library2) );
 
     ret = function2_from_library2 ();
     if( ret != 2 )
@@ -308,11 +313,11 @@ int main()
         RETURN_ERROR;
     }
 
-    nonexistentfunction = dlsym( library, "nonexistentfunction" );
+    *(void **) (&nonexistentfunction) = dlsym( library, "nonexistentfunction" );
     if( nonexistentfunction )
     {
         error = dlerror( );
-        printf( "ERROR\tGot nonexistent symbol from library handle: %p\n", nonexistentfunction );
+        printf( "ERROR\tGot nonexistent symbol from library handle: %p\n", *(void **) (&nonexistentfunction) );
         CLOSE_LIB;
         CLOSE_GLOBAL;
         RETURN_ERROR;
@@ -326,7 +331,7 @@ int main()
     else
         printf( "SUCCESS\tCould not get nonexistent symbol from library handle: %s\n", error );
 
-    function = dlsym( global, "function" );
+    *(void **) (&function) = dlsym( global, "function" );
     if( !function )
     {
         error = dlerror( );
@@ -337,15 +342,15 @@ int main()
         RETURN_ERROR;
     }
     else
-        printf( "SUCCESS\tGot symbol from global handle: %p\n", function );
+        printf( "SUCCESS\tGot symbol from global handle: %p\n", *(void **) (&function) );
 
     RUNFUNC;
 
-    nonexistentfunction = dlsym( global, "nonexistentfunction" );
+    *(void **) (&nonexistentfunction) = dlsym( global, "nonexistentfunction" );
     if( nonexistentfunction )
     {
         error = dlerror( );
-        printf( "ERROR\tGot nonexistent symbol from global handle: %p\n", nonexistentfunction );
+        printf( "ERROR\tGot nonexistent symbol from global handle: %p\n", *(void **) (&nonexistentfunction) );
         CLOSE_LIB;
         CLOSE_GLOBAL;
         RETURN_ERROR;
@@ -391,7 +396,7 @@ int main()
     else
         printf( "SUCCESS\tOpened library locally: %p\n", library );
 
-    function = dlsym( library, "function" );
+    *(void **) (&function) = dlsym( library, "function" );
     if( !function )
     {
         error = dlerror( );
@@ -402,15 +407,15 @@ int main()
         RETURN_ERROR;
     }
     else
-        printf( "SUCCESS\tGot symbol from library handle: %p\n", function );
+        printf( "SUCCESS\tGot symbol from library handle: %p\n", *(void **) (&function) );
 
     RUNFUNC;
 
-    nonexistentfunction = dlsym( library, "nonexistentfunction" );
+    *(void **) (&nonexistentfunction) = dlsym( library, "nonexistentfunction" );
     if( nonexistentfunction )
     {
         error = dlerror( );
-        printf( "ERROR\tGot nonexistent symbol from library handle: %p\n", nonexistentfunction );
+        printf( "ERROR\tGot nonexistent symbol from library handle: %p\n", *(void **) (&nonexistentfunction) );
         CLOSE_LIB;
         CLOSE_GLOBAL;
         RETURN_ERROR;
@@ -424,12 +429,12 @@ int main()
     else
         printf( "SUCCESS\tCould not get nonexistent symbol from library handle: %s\n", error );
 
-    function = dlsym( global, "function" );
+    *(void **) (&function) = dlsym( global, "function" );
     if( function )
     {
         error = dlerror( );
         printf( "ERROR\tGot local symbol from global handle: %s @ %p\n",
-                error ? error : "", function );
+                error ? error : "", *(void **) (&function) );
         CLOSE_LIB;
         CLOSE_GLOBAL;
         RETURN_ERROR;
@@ -437,11 +442,11 @@ int main()
     else
         printf( "SUCCESS\tDid not get local symbol from global handle.\n" );
 
-    nonexistentfunction = dlsym( global, "nonexistentfunction" );
+    *(void **) (&nonexistentfunction) = dlsym( global, "nonexistentfunction" );
     if( nonexistentfunction )
     {
         error = dlerror( );
-        printf( "ERROR\tGot nonexistent local symbol from global handle: %p\n", nonexistentfunction );
+        printf( "ERROR\tGot nonexistent local symbol from global handle: %p\n", *(void **) (&nonexistentfunction) );
         CLOSE_LIB;
         CLOSE_GLOBAL;
         RETURN_ERROR;
@@ -467,7 +472,7 @@ int main()
     else
         printf( "SUCCESS\tOpened library globally without closing it first: %p\n", library );
 
-    function = dlsym( global, "function" );
+    *(void **) (&function) = dlsym( global, "function" );
     if( !function )
     {
         error = dlerror( );
@@ -478,15 +483,15 @@ int main()
         RETURN_ERROR;
     }
     else
-        printf( "SUCCESS\tGot symbol from global handle: %p\n", function );
+        printf( "SUCCESS\tGot symbol from global handle: %p\n", *(void **) (&function) );
 
     RUNFUNC;
 
-    nonexistentfunction = dlsym( global, "nonexistentfunction" );
+    *(void **) (&nonexistentfunction) = dlsym( global, "nonexistentfunction" );
     if( nonexistentfunction )
     {
         error = dlerror( );
-        printf( "ERROR\tGot nonexistent symbol from global handle: %p\n", nonexistentfunction );
+        printf( "ERROR\tGot nonexistent symbol from global handle: %p\n", *(void **) (&nonexistentfunction) );
         CLOSE_LIB;
         CLOSE_GLOBAL;
         RETURN_ERROR;
@@ -517,7 +522,7 @@ int main()
         }
     }
 
-    function = dlsym(global, "fwrite");
+    *(void **) (&function) = dlsym( global, "fwrite" );
     if (!function)
     {
         error = dlerror();
@@ -528,7 +533,7 @@ int main()
         RETURN_ERROR;
     }
     else
-        printf("SUCCESS\tGot symbol from global handle: %p\n", function);
+        printf( "SUCCESS\tGot symbol from global handle: %p\n", *(void **) (&function) );
     
 
     uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
@@ -540,7 +545,7 @@ int main()
         RETURN_ERROR;
     }
     else
-        printf( "SUCCESS\tOpened library3 via WINAPI: %p\n", library3 );
+        printf( "SUCCESS\tOpened library3 via WINAPI: %p\n", (void *)library3 );
 
     ret = dlclose( library );
     if( ret )
@@ -553,7 +558,7 @@ int main()
     else
         printf( "SUCCESS\tClosed library.\n" );
 
-    function = dlsym(global, "function3");
+    *(void **) (&function) = dlsym( global, "function3" );
     if (!function)
     {
         error = dlerror();
@@ -564,7 +569,7 @@ int main()
         RETURN_ERROR;
     }
     else
-        printf("SUCCESS\tGot symbol from global handle: %p\n", function);
+        printf( "SUCCESS\tGot symbol from global handle: %p\n", *(void **) (&function) );
 
     RUNFUNC;
 
