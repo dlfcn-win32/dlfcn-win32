@@ -129,8 +129,7 @@ static void local_rem( HMODULE hModule )
  * the limit.
  */
 static char error_buffer[65535];
-static char *current_error;
-static char dlerror_buffer[65536];
+static BOOL error_occurred;
 
 static void save_err_str( const char *str )
 {
@@ -175,7 +174,7 @@ static void save_err_str( const char *str )
             error_buffer[pos-2] = '\0';
     }
 
-    current_error = error_buffer;
+    error_occurred = TRUE;
 }
 
 static void save_err_ptr_str( const void *ptr )
@@ -214,7 +213,7 @@ void *dlopen( const char *file, int mode )
     HMODULE hModule;
     UINT uMode;
 
-    current_error = NULL;
+    error_occurred = FALSE;
 
     /* Do not let Windows display the critical-error-handler message box */
     uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
@@ -321,7 +320,7 @@ int dlclose( void *handle )
     HMODULE hModule = (HMODULE) handle;
     BOOL ret;
 
-    current_error = NULL;
+    error_occurred = FALSE;
 
     ret = FreeLibrary( hModule );
 
@@ -347,7 +346,8 @@ void *dlsym( void *handle, const char *name )
     HMODULE hModule;
     HANDLE hCurrentProc;
 
-    current_error = NULL;
+    error_occurred = FALSE;
+
     symbol = NULL;
     hCaller = NULL;
     hModule = GetModuleHandle( NULL );
@@ -459,22 +459,16 @@ end:
 
 char *dlerror( void )
 {
-    char *error_pointer = dlerror_buffer;
-    
     /* If this is the second consecutive call to dlerror, return NULL */
-    if (current_error == NULL)
-    {
+    if( !error_occurred )
         return NULL;
-    }
-
-    memcpy(error_pointer, current_error, strlen(current_error) + 1);
 
     /* POSIX says that invoking dlerror( ) a second time, immediately following
      * a prior invocation, shall result in NULL being returned.
      */
-    current_error = NULL;
+    error_occurred = FALSE;
 
-    return error_pointer;
+    return error_buffer;
 }
 
 #ifdef SHARED
