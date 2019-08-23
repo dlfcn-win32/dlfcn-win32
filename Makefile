@@ -6,13 +6,14 @@ CFLAGS = -Wall -O3 -fomit-frame-pointer
 
 ifeq ($(BUILD_SHARED),yes)
 	TARGETS += libdl.dll
-	SHFLAGS += -Wl,--out-implib,libdl.dll.a
-	CFLAGS  += -DSHARED
+	SHFLAGS += -Wl,--out-implib,libdl.dll.a -DSHARED
 	INSTALL += shared-install
+	TESTS   += test.exe
 endif
 ifeq ($(BUILD_STATIC),yes)
 	TARGETS += libdl.a
 	INSTALL += static-install
+	TESTS   += test-static.exe
 endif
 ifeq ($(BUILD_MSVC),yes)
     TARGETS += libdl.lib
@@ -20,20 +21,18 @@ ifeq ($(BUILD_MSVC),yes)
 	INSTALL += lib-install
 endif
 
-LIB_OBJS := dlfcn.o
+SOURCES  := dlfcn.c
 HEADERS  := dlfcn.h
 
 all: $(TARGETS)
 
-%.o: %.c
-	$(CC) -o $@ -c $< $(CFLAGS)
+libdl.a: $(SOURCES)
+	$(CC) $(CFLAGS) -c $^
+	$(AR) cru $@ $(SOURCES:%.c=%.o)
+	$(RANLIB) $@
 
-libdl.a: $(LIB_OBJS)
-	$(AR) cru $@ $^
-	$(RANLIB) libdl.a
-
-libdl.dll: $(LIB_OBJS)
-	$(CC) $(SHFLAGS) -shared -o $@ $^
+libdl.dll: $(SOURCES)
+	$(CC) $(CFLAGS) $(SHFLAGS) -shared -o $@ $^
 
 libdl.lib: libdl.dll
 	$(LIBCMD) /machine:i386 /def:libdl.def
@@ -59,27 +58,30 @@ lib-install:
 
 install: $(INSTALL)
 
-test.exe: test.o $(TARGETS)
-	$(CC) -o $@ $< -L. -ldl
+test.exe: test.c $(TARGETS)
+	$(CC) $(CFLAGS) -o $@ $< libdl.dll.a
+
+test-static.exe: test.c $(TARGETS)
+	$(CC) $(CFLAGS) -o $@ $< libdl.a
 
 testdll.dll: testdll.c
-	$(CC) -shared -o $@ $^
+	$(CC) $(CFLAGS) -shared -o $@ $^
 
 testdll2.dll: testdll2.c $(TARGETS)
-	$(CC) -shared -o $@ $< -L. -ldl
+	$(CC) $(CFLAGS) -shared -o $@ $< -L. -ldl
 
 testdll3.dll: testdll3.c
 	$(CC) -shared -o $@ $^
 
-test: $(TARGETS) test.exe testdll.dll testdll2.dll testdll3.dll
-	$(WINE) test.exe
+test: $(TARGETS) $(TESTS) testdll.dll testdll2.dll testdll3.dll
+	for test in $(TESTS); do $(WINE) $$test || exit 1; done
 
 clean::
 	rm -f \
 		dlfcn.o \
 		libdl.dll libdl.a libdl.def libdl.dll.a libdl.lib libdl.exp \
 		tmptest.c tmptest.dll \
-		test.exe testdll.dll testdll2.dll testdll3.dll
+		test.exe test-static.exe testdll.dll testdll2.dll testdll3.dll
 
 distclean: clean
 	rm -f config.mak
