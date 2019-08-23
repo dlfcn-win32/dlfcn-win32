@@ -74,7 +74,7 @@ testdll3.dll: testdll3.c
 	$(CC) -shared -o $@ $^
 
 test: $(TARGETS) $(TESTS) testdll.dll testdll2.dll testdll3.dll
-	for test in $(TESTS); do $(WINE) $$test || exit 1; done
+	for test in $(TESTS); do $(WINE) ./$$test || exit 1; done
 
 clean::
 	rm -f \
