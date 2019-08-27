@@ -167,12 +167,9 @@ static void save_err_str( const char *str )
     if( ret == 0 )
         error_buffer[pos] = '\0';
 
-    if( pos > 1 )
-    {
-        /* POSIX says the string must not have trailing <newline> */
-        if( error_buffer[pos-2] == '\r' && error_buffer[pos-1] == '\n' )
-            error_buffer[pos-2] = '\0';
-    }
+    /* POSIX says the string must not have trailing <newline> */
+    for( ; pos > 0 && (error_buffer[pos-1] == '\r' || error_buffer[pos-1] == '\n') ; pos--)
+        error_buffer[pos-1] = '\0';
 
     error_occurred = TRUE;
 }
