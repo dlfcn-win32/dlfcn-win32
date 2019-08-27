@@ -239,15 +239,15 @@ void *dlopen( const char *file, int mode )
     {
         HANDLE hCurrentProc;
         DWORD dwProcModsBefore, dwProcModsAfter;
-        char lpFileName[MAX_PATH];
+        char *lpFileName;
         size_t i, len;
 
         len = strlen( file );
+        lpFileName = malloc( len + 1 );
 
-        if( len >= sizeof( lpFileName ) )
+        if( ! lpFileName )
         {
-            SetLastError( ERROR_FILENAME_EXCED_RANGE );
-            save_err_str( file );
+            SetLastError( ERROR_NOT_ENOUGH_MEMORY );
             hModule = NULL;
         }
         else
@@ -306,6 +306,7 @@ void *dlopen( const char *file, int mode )
                     local_rem( hModule );
                 }
             }
+            free( lpFileName );
         }
     }
 
