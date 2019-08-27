@@ -5,7 +5,7 @@ include config.mak
 CFLAGS = -Wall -O3 -fomit-frame-pointer
 
 ifeq ($(BUILD_SHARED),yes)
-	TARGETS += libdl.dll
+	TARGETS += libdl.dll libdl.dll.a
 	SHFLAGS += -Wl,--out-implib,libdl.dll.a -DSHARED
 	INSTALL += shared-install
 	TESTS   += test.exe
@@ -33,6 +33,7 @@ libdl.a: $(SOURCES)
 
 libdl.dll: $(SOURCES)
 	$(CC) $(CFLAGS) $(SHFLAGS) -shared -o $@ $^
+libdl.dll.a: libdl.dll
 
 libdl.lib: libdl.dll
 	$(LIBCMD) /machine:i386 /def:libdl.def
