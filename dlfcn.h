@@ -30,26 +30,41 @@ extern "C" {
 #   define DLFCN_EXPORT
 #endif
 
-/* POSIX says these are implementation-defined.
- * To simplify use with Windows API, we treat them the same way.
- */
-
-#define RTLD_LAZY   0
+/* Relocations are performed when the object is loaded. */
 #define RTLD_NOW    0
 
+/* Relocations are performed at an implementation-defined time.
+ * Windows API does not support lazy symbol resolving (when first reference
+ * to a given symbol occurs). So RTLD_LAZY implementation is same as RTLD_NOW.
+ */
+#define RTLD_LAZY   RTLD_NOW
+
+/* All symbols are available for relocation processing of other modules. */
 #define RTLD_GLOBAL (1 << 1)
+
+/* All symbols are not made available for relocation processing by other modules. */
 #define RTLD_LOCAL  (1 << 2)
 
 /* These two were added in The Open Group Base Specifications Issue 6.
  * Note: All other RTLD_* flags in any dlfcn.h are not standard compliant.
  */
 
+/* The symbol lookup happens in the normal global scope. */
 #define RTLD_DEFAULT    ((void *)0)
+
+/* Specifies the next object after this one that defines name. */
 #define RTLD_NEXT       ((void *)-1)
 
-DLFCN_EXPORT void *dlopen ( const char *file, int mode );
-DLFCN_EXPORT int   dlclose(void *handle);
+/* Open a symbol table handle. */
+DLFCN_EXPORT void *dlopen(const char *file, int mode);
+
+/* Close a symbol table handle. */
+DLFCN_EXPORT int dlclose(void *handle);
+
+/* Get the address of a symbol from a symbol table handle. */
 DLFCN_EXPORT void *dlsym(void *handle, const char *name);
+
+/* Get diagnostic information. */
 DLFCN_EXPORT char *dlerror(void);
 
 #ifdef __cplusplus

@@ -225,10 +225,10 @@ void *dlopen( const char *file, int mode )
          * all symbols from the original program file, and any objects loaded
          * with the RTLD_GLOBAL flag.
          * The return value from GetModuleHandle( ) allows us to retrieve
-         * symbols only from the original program file. For objects loaded with
-         * the RTLD_GLOBAL flag, we create our own list later on. For objects
-         * outside of the program file but already loaded (e.g. linked DLLs)
-         * they are added below.
+         * symbols only from the original program file. EnumProcessModules() is
+         * used to access symbols from other libraries. For objects loaded
+         * with the RTLD_LOCAL flag, we create our own list later on. They are
+         * excluded from EnumProcessModules() iteration.
          */
         hModule = GetModuleHandle( NULL );
 
