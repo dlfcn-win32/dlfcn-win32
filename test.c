@@ -27,6 +27,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <windows.h>
+#include <wchar.h>
+#include <io.h>
+#include <fcntl.h>
+#include <direct.h>
 #include "dlfcn.h"
 
 /* If these dlclose's fails, we don't care as the handles are going to be
@@ -81,11 +85,14 @@ int main()
     size_t (*fwrite_local) ( const void *, size_t, size_t, FILE * );
     size_t (*fputs_default) ( const char *, FILE * );
     int (*nonexistentfunction)( void );
+    int fd;
     int ret;
     HMODULE library3;
     char toolongfile[32767];
     DWORD code;
     char nonlibraryfile[MAX_PATH];
+    char bytename[sizeof("testdll2.dll")+4];
+    WCHAR widename[sizeof("testdll2.dll")+1];
     DWORD length;
     HANDLE tempfile;
     DWORD dummy;
@@ -210,6 +217,32 @@ int main()
     else
         printf( "SUCCESS\tCould not open file with too long file name via WINAPI: %lu\n", (unsigned long)code );
 
+    fd = _open( "testdll2.dll", _O_RDONLY | _O_BINARY );
+    if( fd < 0 )
+    {
+        if( _chdir( "Debug" ) == 0 )
+        {
+            fd = _open( "testdll2.dll", _O_RDONLY | _O_BINARY );
+            if( fd < 0 )
+                _chdir( ".." );
+        }
+    }
+    if( fd < 0 )
+    {
+        if( _chdir( "Release" ) == 0 )
+        {
+            fd = _open( "testdll2.dll", _O_RDONLY | _O_BINARY );
+            if( fd < 0 )
+                _chdir( ".." );
+        }
+    }
+    if( fd < 0 )
+    {
+        printf( "ERROR\tCould not open library2 file: %s\n", strerror( errno ) );
+        RETURN_ERROR;
+    }
+    _close( fd );
+
     library2 = dlopen( "testdll2.dll", RTLD_GLOBAL );
     if( !library2 )
     {
@@ -219,6 +252,66 @@ int main()
     }
     else
         printf( "SUCCESS\tOpened library2 globally: %p\n", library2 );
+
+    widename[0] = 0xE1; /* wide non-ASCII character mappable to most ANSI codepages */
+    wcscpy( widename+1, L"testdll2.dll" );
+    if( !CopyFileW( L"testdll2.dll", widename, FALSE ))
+    {
+        printf( "ERROR\tCould not copy file testdll2.dll: %lu\n", (unsigned long)GetLastError( ) );
+        RETURN_ERROR;
+    }
+    else
+        printf( "SUCCESS\tCopied testdll2.dll to wide name %ls\n", widename );
+
+    ret = WideCharToMultiByte( CP_ACP, 0, widename, -1, bytename, sizeof( bytename ), NULL, NULL );
+    /* if we cannot convert widename to current codepage (used by _open() function), skip this test */
+    if( ret > 0 )
+    {
+        bytename[ret] = 0;
+
+        fd = _wopen( widename, _O_RDONLY | _O_BINARY );
+        if( fd < 0 )
+        {
+            printf( "ERROR\tCould not open copied wide library2 file %ls: %s\n", widename, strerror( errno ) );
+            DeleteFileW( widename );
+            RETURN_ERROR;
+        }
+        _close( fd );
+
+        fd = _open( bytename, _O_RDONLY | _O_BINARY );
+        if( fd < 0 )
+        {
+            printf( "ERROR\tCould not open copied wide library2 file %s: %s\n", bytename, strerror( errno ) );
+            DeleteFileW( widename );
+            RETURN_ERROR;
+        }
+        _close( fd );
+
+        dlclose( library2 );
+        library2 = dlopen( bytename, RTLD_GLOBAL );
+        if( !library2 )
+        {
+            error = dlerror( );
+            printf( "ERROR\tCould not open copied wide library2 file %s globally: %s\n", bytename, error ? error : "" );
+            DeleteFileW( widename );
+            RETURN_ERROR;
+        }
+        else
+            printf( "SUCCESS\tOpened copied wide library2 file %s globally: %p\n", bytename, library2 );
+
+        dlclose( library2 );
+        DeleteFileW( widename );
+
+        library2 = dlopen( "testdll2.dll", RTLD_GLOBAL );
+        if( !library2 )
+        {
+            error = dlerror( );
+            printf( "ERROR\tCould not open library2 globally: %s\n", error ? error : "" );
+            RETURN_ERROR;
+        }
+        else
+            printf( "SUCCESS\tOpened library2 globally: %p\n", library2 );
+    }
 
     library = dlopen( "testdll.dll", RTLD_GLOBAL );
     if( !library )
