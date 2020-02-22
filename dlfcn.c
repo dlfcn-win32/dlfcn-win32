@@ -233,7 +233,7 @@ void *dlopen( const char *file, int mode )
         hModule = GetModuleHandle( NULL );
 
         if( !hModule )
-            save_err_ptr_str( file );
+            save_err_str( "(null)" );
     }
     else
     {
