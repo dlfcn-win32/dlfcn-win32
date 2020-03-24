@@ -432,7 +432,10 @@ void *dlsym( void *handle, const char *name )
                             continue;
                         symbol = GetProcAddress( modules[i], name );
                         if( symbol != NULL )
+                        {
+                            free( modules );
                             goto end;
+                        }
                     }
 
                 }
