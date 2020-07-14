@@ -276,7 +276,7 @@ void *wdlopen( const wchar_t *file, int mode )
 
         len = wcslen( file );
 
-        if( len >= sizeof( lpFileName ) )
+        if( len >= MAX_PATH )
         {
             SetLastError( ERROR_FILENAME_EXCED_RANGE );
             char* fileMultibyte = utf8_encode( file );
@@ -395,7 +395,7 @@ void *dlopen( const char *file, int mode )
 
         len = strlen( file );
 
-        if( len >= sizeof( lpFileName ) )
+        if( len >= MAX_PATH )
         {
             SetLastError( ERROR_FILENAME_EXCED_RANGE );
             save_err_str( file );
