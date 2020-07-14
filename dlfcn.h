@@ -30,6 +30,8 @@ extern "C" {
 #   define DLFCN_EXPORT
 #endif
 
+#include <wchar.h>
+
 /* Relocations are performed when the object is loaded. */
 #define RTLD_NOW    0
 
@@ -55,7 +57,10 @@ extern "C" {
 /* Specifies the next object after this one that defines name. */
 #define RTLD_NEXT       ((void *)-1)
 
-/* Open a symbol table handle. */
+/* Open a symbol table handle (file path is in wide character). */
+DLFCN_EXPORT void *wdlopen(const wchar_t *file, int mode);
+
+/* Open a symbol table handle (ASCII file path only). */
 DLFCN_EXPORT void *dlopen(const char *file, int mode);
 
 /* Close a symbol table handle. */
