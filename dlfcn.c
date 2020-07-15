@@ -369,24 +369,10 @@ void *dlsym( void *handle, const char *name )
          * The next object is the one found upon the application of a load
          * order symbol resolution algorithm. To get caller function of dlsym()
          * use _ReturnAddress() intrinsic. To get HMODULE of caller function
-         * use undocumented hack from https://stackoverflow.com/a/2396380
-         * The HMODULE of a DLL is the same value as the module's base address.
+         * use standard GetModuleHandleExA() function.
          */
-        MEMORY_BASIC_INFORMATION info;
-        size_t sLen;
-        sLen = VirtualQueryEx( hCurrentProc, _ReturnAddress(), &info, sizeof( info ) );
-        if( sLen != sizeof( info ) )
-        {
-            if( sLen != 0 )
-                SetLastError( ERROR_INVALID_PARAMETER );
+        if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR) _ReturnAddress( ), &hCaller ) )
             goto end;
-        }
-        hCaller = (HMODULE) info.AllocationBase;
-        if( !hCaller )
-        {
-            SetLastError( ERROR_INVALID_PARAMETER );
-            goto end;
-        }
     }
 
     if( handle != RTLD_NEXT )
