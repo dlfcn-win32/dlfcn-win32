@@ -1,6 +1,7 @@
 # Simple CMake project to test the use of dlfcn-win32
 # imported target. The test compiled is the same compiled
 # as part of the main dlfcn-win32 project 
+project(dlfcn-win32-test)
 
 cmake_minimum_required(VERSION 3.0)
 
