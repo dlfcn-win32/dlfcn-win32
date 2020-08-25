@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.11)
 
 if (NOT DEFINED CMAKE_BUILD_TYPE)
   set (CMAKE_BUILD_TYPE Release CACHE STRING "Build type")
@@ -25,38 +25,33 @@ install (TARGETS dl EXPORT dlfcn-win32-targets
 
 install (FILES ${headers} DESTINATION include)
 
-# If CMake version is greater than or equal to 2.8.11
-# also install the cmake configuration files to simplify
-# the use of dlfcn-win32 in CMake
-if(NOT ${CMAKE_VERSION} VERSION_LESS "2.8.11")
-    # Correctly export the location of installed includes in the target 
-    target_include_directories(dl INTERFACE $<INSTALL_INTERFACE:include>)
+# Correctly export the location of installed includes in the target
+target_include_directories(dl INTERFACE $<INSTALL_INTERFACE:include>)
 
-    # Export the targets  (build tree)
-    export(EXPORT dlfcn-win32-targets
-           FILE "${CMAKE_CURRENT_BINARY_DIR}/dlfcn-win32-targets.cmake"
-           NAMESPACE dlfcn-win32::
-    )
-    
-    # Write the CMake config file
-    set(CMAKE_CONF_INSTALL_DIR share/dlfcn-win32)
-    set(INCLUDE_INSTALL_DIR include)
-    include(CMakePackageConfigHelpers)
-    configure_package_config_file(dlfcn-win32-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/dlfcn-win32-config.cmake
-                                  INSTALL_DESTINATION ${CMAKE_CONF_INSTALL_DIR}
-                                  PATH_VARS INCLUDE_INSTALL_DIR
-                                  NO_CHECK_REQUIRED_COMPONENTS_MACRO)
+# Export the targets  (build tree)
+export(EXPORT dlfcn-win32-targets
+       FILE "${CMAKE_CURRENT_BINARY_DIR}/dlfcn-win32-targets.cmake"
+       NAMESPACE dlfcn-win32::
+)
 
-    # Install the targets (install)
-    install(EXPORT dlfcn-win32-targets
-            FILE dlfcn-win32-targets.cmake
-            NAMESPACE dlfcn-win32::
-            DESTINATION ${CMAKE_CONF_INSTALL_DIR})
+# Write the CMake config file
+set(CMAKE_CONF_INSTALL_DIR share/dlfcn-win32)
+set(INCLUDE_INSTALL_DIR include)
+include(CMakePackageConfigHelpers)
+configure_package_config_file(dlfcn-win32-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/dlfcn-win32-config.cmake
+                              INSTALL_DESTINATION ${CMAKE_CONF_INSTALL_DIR}
+                              PATH_VARS INCLUDE_INSTALL_DIR
+                              NO_CHECK_REQUIRED_COMPONENTS_MACRO)
 
-    # Install the CMake config file
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dlfcn-win32-config.cmake
-            DESTINATION ${CMAKE_CONF_INSTALL_DIR})
-endif()
+# Install the targets (install)
+install(EXPORT dlfcn-win32-targets
+        FILE dlfcn-win32-targets.cmake
+        NAMESPACE dlfcn-win32::
+        DESTINATION ${CMAKE_CONF_INSTALL_DIR})
+
+# Install the CMake config file
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dlfcn-win32-config.cmake
+        DESTINATION ${CMAKE_CONF_INSTALL_DIR})
 
 if (BUILD_TESTS)
   enable_testing()
