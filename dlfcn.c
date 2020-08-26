@@ -170,12 +170,9 @@ static void save_err_str( const char *str )
     if( ret == 0 )
         error_buffer[pos] = '\0';
 
-    if( pos > 1 )
-    {
-        /* POSIX says the string must not have trailing <newline> */
-        if( error_buffer[pos-2] == '\r' && error_buffer[pos-1] == '\n' )
-            error_buffer[pos-2] = '\0';
-    }
+    /* POSIX says the string must not have trailing <newline> */
+    for( ; pos > 0 && (error_buffer[pos-1] == '\r' || error_buffer[pos-1] == '\n') ; pos--)
+        error_buffer[pos-1] = '\0';
 
     error_occurred = TRUE;
 }
@@ -242,15 +239,15 @@ void *dlopen( const char *file, int mode )
     {
         HANDLE hCurrentProc;
         DWORD dwProcModsBefore, dwProcModsAfter;
-        char lpFileName[MAX_PATH];
+        char *lpFileName;
         size_t i, len;
 
         len = strlen( file );
+        lpFileName = malloc( len + 1 );
 
-        if( len >= sizeof( lpFileName ) )
+        if( ! lpFileName )
         {
-            SetLastError( ERROR_FILENAME_EXCED_RANGE );
-            save_err_str( file );
+            SetLastError( ERROR_NOT_ENOUGH_MEMORY );
             hModule = NULL;
         }
         else
@@ -309,6 +306,7 @@ void *dlopen( const char *file, int mode )
                     local_rem( hModule );
                 }
             }
+            free( lpFileName );
         }
     }
 
