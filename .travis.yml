@@ -1,0 +1,16 @@
+language: c
+
+compiler:
+  - i686-w64-mingw32-gcc
+  - x86_64-w64-mingw32-gcc
+
+addons:
+  apt:
+    packages:
+      - gcc-mingw-w64
+      - wine
+
+script:
+  - ./configure --enable-shared --enable-static --enable-wine --cross-prefix=${CC%-*}-
+  - make
+  - make test
