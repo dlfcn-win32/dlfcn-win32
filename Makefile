@@ -2,7 +2,7 @@
 # dlfcn-win32 Makefile
 #
 include config.mak
-CFLAGS = -Wall -O3 -fomit-frame-pointer
+CFLAGS = -Wall -O3 -fomit-frame-pointer -Isrc
 
 ifeq ($(BUILD_SHARED),yes)
 	TARGETS += libdl.dll
@@ -21,13 +21,13 @@ ifeq ($(BUILD_MSVC),yes)
 	INSTALL += lib-install
 endif
 
-SOURCES  := dlfcn.c
-HEADERS  := dlfcn.h
+SOURCES  := src/dlfcn.c
+HEADERS  := src/dlfcn.h
 
 all: $(TARGETS)
 
 libdl.a: $(SOURCES)
-	$(CC) $(CFLAGS) -c $^
+	$(CC) $(CFLAGS) -o $(^:%.c=%.o) -c $^
 	$(AR) cru $@ $(SOURCES:%.c=%.o)
 	$(RANLIB) $@
 
@@ -58,19 +58,19 @@ lib-install:
 
 install: $(INSTALL)
 
-test.exe: test.c $(TARGETS)
+test.exe: tests/test.c $(TARGETS)
 	$(CC) $(CFLAGS) -o $@ $< libdl.dll.a
 
-test-static.exe: test.c $(TARGETS)
+test-static.exe: tests/test.c $(TARGETS)
 	$(CC) $(CFLAGS) -o $@ $< libdl.a
 
-testdll.dll: testdll.c
+testdll.dll: tests/testdll.c
 	$(CC) $(CFLAGS) -shared -o $@ $^
 
-testdll2.dll: testdll2.c $(TARGETS)
+testdll2.dll: tests/testdll2.c $(TARGETS)
 	$(CC) $(CFLAGS) -shared -o $@ $< -L. -ldl
 
-testdll3.dll: testdll3.c
+testdll3.dll: tests/testdll3.c
 	$(CC) -shared -o $@ $^
 
 test: $(TARGETS) $(TESTS) testdll.dll testdll2.dll testdll3.dll
@@ -78,7 +78,7 @@ test: $(TARGETS) $(TESTS) testdll.dll testdll2.dll testdll3.dll
 
 clean::
 	rm -f \
-		dlfcn.o \
+		src/dlfcn.o \
 		libdl.dll libdl.a libdl.def libdl.dll.a libdl.lib libdl.exp \
 		tmptest.c tmptest.dll \
 		test.exe test-static.exe testdll.dll testdll2.dll testdll3.dll
