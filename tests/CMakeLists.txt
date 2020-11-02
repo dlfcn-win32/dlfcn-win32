@@ -1,4 +1,3 @@
-enable_testing()
 include_directories(../src)
 add_library(testdll SHARED testdll.c)
 set_target_properties(testdll PROPERTIES PREFIX "")
