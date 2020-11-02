@@ -12,4 +12,6 @@ set_target_properties(testdll3 PROPERTIES PREFIX "")
 
 add_executable(t_dlfcn test.c)
 target_link_libraries(t_dlfcn dl)
-add_test(NAME t_dlfcn COMMAND $<TARGET_FILE:t_dlfcn> WORKING_DIRECTORY $<TARGET_FILE_DIR:t_dlfcn>)
+if(RUN_TESTS)
+    add_test(NAME t_dlfcn COMMAND ${WRAPPER} $<TARGET_FILE:t_dlfcn> WORKING_DIRECTORY $<TARGET_FILE_DIR:t_dlfcn>)
+endif()
