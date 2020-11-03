@@ -6,7 +6,7 @@ endif ()
 
 project (dlfcn-win32 C)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
 include(Macros)
 
 option(BUILD_SHARED_LIBS "shared/static libs" ON) 
