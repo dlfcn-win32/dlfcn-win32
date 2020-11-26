@@ -9,8 +9,11 @@ addons:
     packages:
       - gcc-mingw-w64
       - wine
+      - cmake
+
+env:
+  - ci_buildsys=cmake
+  - ci_buildsys=Makefile
 
 script:
-  - ./configure --enable-shared --enable-static --enable-wine --cross-prefix=${CC%-*}-
-  - make
-  - make test
+  - ci_target=${CC%-*} ./tools/ci-build.sh
