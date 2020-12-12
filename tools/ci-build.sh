@@ -11,8 +11,6 @@ set -x
 # target to build for
 : "${ci_target:=${CROSS_COMPILE%-}}"
 
-install_prefix=$(${ci_target}-gcc --print-sysroot)/${ci_target}
-
 case "$ci_buildsys" in
     (Makefile)
         ./configure --enable-shared --enable-static --enable-wine --cross-prefix=${ci_target}-
@@ -27,7 +25,7 @@ case "$ci_buildsys" in
         cd build
         cmake \
             --no-warn-unused-cli                         \
-            -DCMAKE_FIND_ROOT_PATH=$install_prefix       \
+            -DCMAKE_FIND_ROOT_PATH=$(${ci_target}-gcc --print-sysroot)/${ci_target}       \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo            \
             -DCMAKE_C_COMPILER=$(which ${ci_target}-gcc) \
             -DCMAKE_SYSTEM_PROCESSOR=${ci_target%-*-*}   \
