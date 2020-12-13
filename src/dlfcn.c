@@ -186,13 +186,20 @@ static void save_err_str( const char *str )
 
 static void save_err_ptr_str( const void *ptr )
 {
-    char ptr_buf[19]; /* 0x<pointer> up to 64 bits. */
+    char ptr_buf[2 + 2 * sizeof( ptr ) + 1];
+    char num;
+    size_t i;
 
-#ifdef _MSC_VER
-/* Supress warning C4996: 'sprintf': This function or variable may be unsafe */
-#pragma warning( suppress: 4996 )
-#endif
-    sprintf( ptr_buf, "0x%p", ptr );
+    ptr_buf[0] = '0';
+    ptr_buf[1] = 'x';
+
+    for( i = 0; i < 2 * sizeof( ptr ); i++ )
+    {
+        num = ( ( (ULONG_PTR) ptr ) >> ( 8 * sizeof( ptr ) - 4 * ( i + 1 ) ) ) & 0xF;
+        ptr_buf[2+i] = num + ( ( num < 0xA ) ? '0' : ( 'A' - 0xA ) );
+    }
+
+    ptr_buf[2 + 2 * sizeof( ptr )] = 0;
 
     save_err_str( ptr_buf );
 }
