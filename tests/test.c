@@ -23,6 +23,7 @@
  * THE SOFTWARE.
  */
 
+#define _CRT_SECURE_NO_WARNINGS
 #ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
