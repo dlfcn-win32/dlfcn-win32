@@ -24,6 +24,17 @@ jobs:
           packages:
             - mingw32
             - wine
+      env: ci_buildsys=cmake
+      # Check that we have a real i586-mingw32msvc-gcc compiler as sometimes it is just a symlink to i686-w64-mingw32-gcc
+      before_script: "i586-mingw32msvc-gcc -v 2>&1 | grep -q -x 'Target: i586-mingw32msvc'"
+
+    - dist: trusty
+      compiler: i586-mingw32msvc-gcc
+      addons:
+        apt:
+          packages:
+            - mingw32
+            - wine
       env: ci_buildsys=Makefile
       # Check that we have a real i586-mingw32msvc-gcc compiler as sometimes it is just a symlink to i686-w64-mingw32-gcc
       before_script: "i586-mingw32msvc-gcc -v 2>&1 | grep -q -x 'Target: i586-mingw32msvc'"
