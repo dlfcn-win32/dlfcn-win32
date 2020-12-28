@@ -1,18 +1,21 @@
 language: c
 
 compiler:
+  - x86_64-linux-gnu-gcc
   - i686-w64-mingw32-gcc
   - x86_64-w64-mingw32-gcc
 
 addons:
   apt:
     packages:
+      - gcc
       - gcc-mingw-w64
       - wine
       - cmake
 
 env:
-  - ci_buildsys=cmake
+  - ci_buildsys=cmake ci_variant=static
+  - ci_buildsys=cmake ci_variant=shared
   - ci_buildsys=Makefile
 
 jobs:
@@ -38,6 +41,13 @@ jobs:
       env: ci_buildsys=Makefile
       # Check that we have a real i586-mingw32msvc-gcc compiler as sometimes it is just a symlink to i686-w64-mingw32-gcc
       before_script: "i586-mingw32msvc-gcc -v 2>&1 | grep -q -x 'Target: i586-mingw32msvc'"
+
+  exclude:
+    # unsupported
+    - compiler: i686-linux-gnu-gcc
+      env: ci_buildsys=Makefile
+    - compiler: x86_64-linux-gnu-gcc
+      env: ci_buildsys=Makefile
 
 script:
   - ci_target=${CC%-*} ./tools/ci-build.sh
