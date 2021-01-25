@@ -28,8 +28,12 @@
 extern "C" {
 #endif
 
+#if defined(DLFCN_WIN32_SHARED)
 #if defined(DLFCN_WIN32_EXPORTS)
 #   define DLFCN_EXPORT __declspec(dllexport)
+#else
+#   define DLFCN_EXPORT __declspec(dllimport)
+#endif
 #else
 #   define DLFCN_EXPORT
 #endif
@@ -59,6 +63,15 @@ extern "C" {
 /* Specifies the next object after this one that defines name. */
 #define RTLD_NEXT       ((void *)-1)
 
+/* Structure filled in by dladdr() */
+typedef struct dl_info
+{
+   const char *dli_fname;  /* Filename of defining object (thread unsafe and reused on every call to dladdr) */
+   void       *dli_fbase;  /* Load address of that object */
+   const char *dli_sname;  /* Name of nearest lower symbol */
+   void       *dli_saddr;  /* Exact value of nearest symbol */
+} Dl_info;
+
 /* Open a symbol table handle. */
 DLFCN_EXPORT void *dlopen(const char *file, int mode);
 
@@ -70,6 +83,9 @@ DLFCN_EXPORT void *dlsym(void *handle, const char *name);
 
 /* Get diagnostic information. */
 DLFCN_EXPORT char *dlerror(void);
+
+/* Translate address to symbolic information (no POSIX standard) */
+DLFCN_EXPORT int dladdr(void *addr, Dl_info *info);
 
 #ifdef __cplusplus
 }

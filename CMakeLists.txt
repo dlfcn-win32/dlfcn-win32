@@ -39,7 +39,9 @@ else()
     add_compile_options(-Wall)
 endif()
 
-add_subdirectory(src)
+if(WIN32)
+    add_subdirectory(src)
+endif()
 
 if (BUILD_TESTS)
     add_subdirectory(tests)

@@ -3,6 +3,7 @@
  * Copyright (c) 2007 Ramiro Polla
  * Copyright (c) 2015 Tiancheng "Timothy" Gu
  * Copyright (c) 2019 Pali Rohár <pali.rohar@gmail.com>
+ * Copyright (c) 2020 Ralf Habacker <ralf.habacker@freenet.de>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -45,7 +46,7 @@
 #endif
 #endif
 
-#ifdef SHARED
+#ifdef DLFCN_WIN32_SHARED
 #define DLFCN_WIN32_EXPORTS
 #endif
 #include "dlfcn.h"
@@ -222,6 +223,7 @@ static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb,
     return EnumProcessModulesPtr( hProcess, lphModule, cb, lpcbNeeded );
 }
 
+DLFCN_EXPORT
 void *dlopen( const char *file, int mode )
 {
     HMODULE hModule;
@@ -329,6 +331,7 @@ void *dlopen( const char *file, int mode )
     return (void *) hModule;
 }
 
+DLFCN_EXPORT
 int dlclose( void *handle )
 {
     HMODULE hModule = (HMODULE) handle;
@@ -353,6 +356,7 @@ int dlclose( void *handle )
 }
 
 __declspec(noinline) /* Needed for _ReturnAddress() */
+DLFCN_EXPORT
 void *dlsym( void *handle, const char *name )
 {
     FARPROC symbol;
@@ -460,6 +464,7 @@ end:
     return *(void **) (&symbol);
 }
 
+DLFCN_EXPORT
 char *dlerror( void )
 {
     /* If this is the second consecutive call to dlerror, return NULL */
@@ -474,7 +479,212 @@ char *dlerror( void )
     return error_buffer;
 }
 
-#ifdef SHARED
+/* See https://docs.microsoft.com/en-us/archive/msdn-magazine/2002/march/inside-windows-an-in-depth-look-into-the-win32-portable-executable-file-format-part-2
+ * for details */
+
+/* Get specific image section */
+static BOOL get_image_section( HMODULE module, int index, void **ptr, DWORD *size )
+{
+    IMAGE_DOS_HEADER *dosHeader;
+    IMAGE_OPTIONAL_HEADER *optionalHeader;
+
+    dosHeader = (IMAGE_DOS_HEADER *) module;
+
+    if( dosHeader->e_magic != 0x5A4D )
+        return FALSE;
+
+    optionalHeader = (IMAGE_OPTIONAL_HEADER *) ( (BYTE *) module + dosHeader->e_lfanew + 24 );
+
+    if( optionalHeader->Magic != IMAGE_NT_OPTIONAL_HDR_MAGIC )
+        return FALSE;
+
+    if( index < 0 || index > IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR )
+        return FALSE;
+
+    if( optionalHeader->DataDirectory[index].Size == 0 || optionalHeader->DataDirectory[index].VirtualAddress == 0 )
+        return FALSE;
+
+    if( size != NULL )
+        *size = optionalHeader->DataDirectory[index].Size;
+
+    *ptr = (void *)( (BYTE *) module + optionalHeader->DataDirectory[index].VirtualAddress );
+
+    return TRUE;
+}
+
+/* Return symbol name for a given address */
+static const char *get_symbol_name( HMODULE module, IMAGE_IMPORT_DESCRIPTOR *iid, void *addr, void **func_address )
+{
+    int i;
+    void *candidateAddr = NULL;
+    const char *candidateName = NULL;
+    BYTE *base = (BYTE *) module; /* Required to have correct calculations */
+
+    for( i = 0; iid[i].Characteristics != 0 && iid[i].FirstThunk != 0; i++ )
+    {
+        IMAGE_THUNK_DATA *thunkILT = (IMAGE_THUNK_DATA *)( base + iid[i].Characteristics );
+        IMAGE_THUNK_DATA *thunkIAT = (IMAGE_THUNK_DATA *)( base + iid[i].FirstThunk );
+
+        for( ; thunkILT->u1.AddressOfData != 0; thunkILT++, thunkIAT++ )
+        {
+            IMAGE_IMPORT_BY_NAME *nameData;
+
+            if( IMAGE_SNAP_BY_ORDINAL( thunkILT->u1.Ordinal ) )
+                continue;
+
+            if( (void *) thunkIAT->u1.Function > addr || candidateAddr >= (void *) thunkIAT->u1.Function )
+                continue;
+
+            candidateAddr = (void *) thunkIAT->u1.Function;
+            nameData = (IMAGE_IMPORT_BY_NAME *)( base + (ULONG_PTR) thunkILT->u1.AddressOfData );
+            candidateName = (const char *) nameData->Name;
+        }
+    }
+
+    *func_address = candidateAddr;
+    return candidateName;
+}
+
+static BOOL is_valid_address( void *addr )
+{
+    MEMORY_BASIC_INFORMATION info;
+    SIZE_T result;
+
+    if( addr == NULL )
+        return FALSE;
+
+    /* check valid pointer */
+    result = VirtualQuery( addr, &info, sizeof( info ) );
+
+    if( result == 0 || info.AllocationBase == NULL || info.AllocationProtect == 0 || info.AllocationProtect == PAGE_NOACCESS )
+        return FALSE;
+
+    return TRUE;
+}
+
+/* Return state if address points to an import thunk
+ *
+ * An import thunk is setup with a 'jmp' instruction followed by an
+ * absolute address (32bit) or relative offset (64bit) pointing into
+ * the import address table (iat), which is partially maintained by
+ * the runtime linker.
+ */
+static BOOL is_import_thunk( void *addr )
+{
+    return *(short *) addr == 0x25ff ? TRUE : FALSE;
+}
+
+/* Return adress from the import address table (iat),
+ * if the original address points to a thunk table entry.
+ */
+static void *get_address_from_import_address_table( void *iat, DWORD iat_size, void *addr )
+{
+    BYTE *thkp = (BYTE *) addr;
+    /* Get offset from thunk table (after instruction 0xff 0x25)
+     *   4018c8 <_VirtualQuery>: ff 25 4a 8a 00 00
+     */
+    ULONG offset = *(ULONG *)( thkp + 2 );
+#ifdef _WIN64
+    /* On 64 bit the offset is relative
+     *      4018c8:   ff 25 4a 8a 00 00    jmpq    *0x8a4a(%rip)    # 40a318 <__imp_VirtualQuery>
+     * And can be also negative (MSVC in WDK)
+     *   100002f20:   ff 25 3a e1 ff ff    jmpq   *-0x1ec6(%rip)    # 0x100001060
+     * So cast to signed LONG type
+     */
+    BYTE *ptr = (BYTE *)( thkp + 6 + (LONG) offset );
+#else
+    /* On 32 bit the offset is absolute
+     *   4019b4:    ff 25 90 71 40 00    jmp    *0x40719
+     */
+    BYTE *ptr = (BYTE *) offset;
+#endif
+
+    if( !is_valid_address( ptr ) || ptr < (BYTE *) iat || ptr > (BYTE *) iat + iat_size )
+        return NULL;
+
+    return *(void **) ptr;
+}
+
+/* Holds module filename */
+static char module_filename[2*MAX_PATH];
+
+static BOOL fill_module_info( void *addr, Dl_info *info )
+{
+    HMODULE hModule;
+    DWORD dwSize;
+
+    if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, addr, &hModule ) || hModule == NULL )
+        return FALSE;
+
+    dwSize = GetModuleFileNameA( hModule, module_filename, sizeof( module_filename ) );
+
+    if( dwSize == 0 || dwSize == sizeof( module_filename ) )
+        return FALSE;
+
+    info->dli_fbase = (void *) hModule;
+    info->dli_fname = module_filename;
+
+    return TRUE;
+}
+
+DLFCN_EXPORT
+int dladdr( void *addr, Dl_info *info )
+{
+    void *realAddr, *funcAddress = NULL;
+    HMODULE hModule;
+    IMAGE_IMPORT_DESCRIPTOR *iid;
+    DWORD iidSize = 0;
+
+    if( addr == NULL || info == NULL )
+        return 0;
+
+    hModule = GetModuleHandleA( NULL );
+    if( hModule == NULL )
+        return 0;
+
+    if( !is_valid_address( addr ) )
+        return 0;
+
+    realAddr = addr;
+
+    if( !get_image_section( hModule, IMAGE_DIRECTORY_ENTRY_IMPORT, (void **) &iid, &iidSize ) )
+        return 0;
+
+    if( is_import_thunk( addr ) )
+    {
+        void *iat;
+        void *iatAddr = NULL;
+        DWORD iatSize = 0;
+
+        if( !get_image_section( hModule, IMAGE_DIRECTORY_ENTRY_IAT, &iat, &iatSize ) )
+        {
+            /* Fallback for cases where the iat is not defined,
+             * for example i586-mingw32msvc-gcc */
+            if( iid == NULL || iid->Characteristics == 0 || iid->FirstThunk == 0 )
+                return 0;
+
+            iat = (void *)( (BYTE *) hModule + iid->FirstThunk );
+            /* We assume that in this case iid and iat's are in linear order */
+            iatSize = iidSize - (DWORD) ( (BYTE *) iat - (BYTE *) iid );
+        }
+
+        iatAddr = get_address_from_import_address_table( iat, iatSize, addr );
+        if( iatAddr == NULL )
+            return 0;
+
+        realAddr = iatAddr;
+    }
+
+    if( !fill_module_info( realAddr, info ) )
+        return 0;
+
+    info->dli_sname = get_symbol_name( hModule, iid, realAddr, &funcAddress );
+
+    info->dli_saddr = !info->dli_sname ? NULL : funcAddress ? funcAddress : realAddr;
+    return 1;
+}
+
+#ifdef DLFCN_WIN32_SHARED
 BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
 {
     (void) hinstDLL;

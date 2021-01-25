@@ -6,14 +6,14 @@ CFLAGS = -Wall -O3 -fomit-frame-pointer -Isrc
 
 ifeq ($(BUILD_SHARED),yes)
 	TARGETS += libdl.dll
-	SHFLAGS += -Wl,--out-implib,libdl.dll.a -DSHARED
+	SHFLAGS += -Wl,--out-implib,libdl.dll.a
 	INSTALL += shared-install
-	TESTS   += test.exe
+	TESTS   += test.exe test-dladdr.exe
 endif
 ifeq ($(BUILD_STATIC),yes)
 	TARGETS += libdl.a
 	INSTALL += static-install
-	TESTS   += test-static.exe
+	TESTS   += test-static.exe test-dladdr-static.exe
 endif
 ifeq ($(BUILD_MSVC),yes)
     TARGETS += libdl.lib
@@ -32,7 +32,7 @@ libdl.a: $(SOURCES)
 	$(RANLIB) $@
 
 libdl.dll: $(SOURCES)
-	$(CC) $(CFLAGS) $(SHFLAGS) -shared -o $@ $^
+	$(CC) $(CFLAGS) $(SHFLAGS) -DDLFCN_WIN32_SHARED -shared -o $@ $^
 
 libdl.lib: libdl.dll
 	$(LIBCMD) /machine:i386 /def:libdl.def
@@ -64,6 +64,12 @@ test.exe: tests/test.c $(TARGETS)
 test-static.exe: tests/test.c $(TARGETS)
 	$(CC) $(CFLAGS) -o $@ $< libdl.a
 
+test-dladdr.exe: tests/test-dladdr.c $(TARGETS)
+	$(CC) $(CFLAGS) -DDLFCN_WIN32_SHARED -o $@ $< libdl.dll.a
+
+test-dladdr-static.exe: tests/test-dladdr.c $(TARGETS)
+	$(CC) $(CFLAGS) -o $@ $< libdl.a
+
 testdll.dll: tests/testdll.c
 	$(CC) $(CFLAGS) -shared -o $@ $^
 
@@ -81,6 +87,7 @@ clean::
 		src/dlfcn.o \
 		libdl.dll libdl.a libdl.def libdl.dll.a libdl.lib libdl.exp \
 		tmptest.c tmptest.dll \
+		test-dladdr.exe test-dladdr-static.exe \
 		test.exe test-static.exe testdll.dll testdll2.dll testdll3.dll
 
 distclean: clean
