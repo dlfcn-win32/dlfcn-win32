@@ -1,4 +1,6 @@
 /* On Unix like os compile with "-Wl,--export-dynamic -fpie" (default with cmake) */
+/* On Windows gcc compile with "-Wl,--export-all-symbols" (default with cmake) */
+/* On Windows msvc compile with "/EXPORT:dlopen /EXPORT:dladdr" (default with cmake) */
 
 /* required for non Windows builds, must be set in front of the first system include */
 #define _GNU_SOURCE
@@ -131,20 +133,11 @@ __declspec(dllimport) int __cdecl atoi(const char *_Str);
 #endif
 #endif
 
-#ifdef _WIN32
-#define FailOnWin Fail
-#else
-#define FailOnWin Pass
-#endif
-
-#if defined(_WIN32) && !defined(DLFCN_WIN32_SHARED)
-#define PassOnSharedBuild Fail
-#else
-#define PassOnSharedBuild Pass
-#endif
-
 #define UNUSED(x) (void)x
 
+#ifdef _WIN32
+__declspec(dllexport)
+#endif
 int main(int argc, char **argv)
 {
     /* points to non reachable address */
@@ -161,10 +154,10 @@ int main(int argc, char **argv)
 
     result = check_dladdr( "null pointer", (void*)0, NULL , NoInfo);
     result |= check_dladdr( "invalid pointer", (void*)0x125, NULL , NoInfo);
-    result |= check_dladdr( "function from dl library", (void*)dladdr, "dladdr" , PassOnSharedBuild );
-    result |= check_dladdr( "function from dl library", (void*)dlopen, "dlopen", PassOnSharedBuild );
+    result |= check_dladdr( "function from dl library", (void*)dladdr, "dladdr" , Pass );
+    result |= check_dladdr( "function from dl library", (void*)dlopen, "dlopen", Pass );
     result |= check_dladdr( "function from glibc/msvcrt library", (void*)atoi, "atoi", Pass );
-    result |= check_dladdr( "function from executable", (void*)main, "main", FailOnWin );
+    result |= check_dladdr( "function from executable", (void*)main, "main", Pass );
     result |= check_dladdr( "static function from executable", (void*)print_dl_info, "print_dl_info", Fail );
     result |= check_dladdr( "address with positive offset", ((char*)atoi)+1, "atoi", PassWithDifferentAddress );
     result |= check_dladdr( "zero address from import thunk", zero_thunk_address, "", NoInfo );

@@ -512,8 +512,8 @@ static BOOL get_image_section( HMODULE module, int index, void **ptr, DWORD *siz
     return TRUE;
 }
 
-/* Return symbol name for a given address */
-static const char *get_symbol_name( HMODULE module, IMAGE_IMPORT_DESCRIPTOR *iid, void *addr, void **func_address )
+/* Return symbol name for a given address from import table */
+static const char *get_import_symbol_name( HMODULE module, IMAGE_IMPORT_DESCRIPTOR *iid, void *addr, void **func_address )
 {
     int i;
     void *candidateAddr = NULL;
@@ -543,6 +543,40 @@ static const char *get_symbol_name( HMODULE module, IMAGE_IMPORT_DESCRIPTOR *iid
 
     *func_address = candidateAddr;
     return candidateName;
+}
+
+/* Return symbol name for a given address from export table */
+static const char *get_export_symbol_name( HMODULE module, IMAGE_EXPORT_DIRECTORY *ied, void *addr, void **func_address )
+{
+    DWORD i;
+    void *candidateAddr = NULL;
+    int candidateIndex = -1;
+    BYTE *base = (BYTE *) module;
+    DWORD *functionAddressesOffsets = (DWORD *) (base + ied->AddressOfFunctions);
+    DWORD *functionNamesOffsets = (DWORD *) (base + ied->AddressOfNames);
+    USHORT *functionNameOrdinalsIndexes = (USHORT *) (base + ied->AddressOfNameOrdinals);
+
+    for( i = 0; i < ied->NumberOfFunctions; i++ )
+    {
+        if( (void *) ( base + functionAddressesOffsets[i] ) > addr || candidateAddr >= (void *) ( base + functionAddressesOffsets[i] ) )
+            continue;
+
+        candidateAddr = (void *) ( base + functionAddressesOffsets[i] );
+        candidateIndex = i;
+    }
+
+    if( candidateIndex == -1 )
+        return NULL;
+
+    *func_address = candidateAddr;
+
+    for( i = 0; i < ied->NumberOfNames; i++ )
+    {
+        if( functionNameOrdinalsIndexes[i] == candidateIndex )
+            return (const char *) ( base + functionNamesOffsets[i] );
+    }
+
+    return NULL;
 }
 
 static BOOL is_valid_address( void *addr )
@@ -608,11 +642,16 @@ static void *get_address_from_import_address_table( void *iat, DWORD iat_size, v
 /* Holds module filename */
 static char module_filename[2*MAX_PATH];
 
-static BOOL fill_module_info( void *addr, Dl_info *info )
+static BOOL fill_info( HMODULE hModuleImport, void *addr, Dl_info *info )
 {
     HMODULE hModule;
     DWORD dwSize;
+    IMAGE_EXPORT_DIRECTORY *ied;
+    IMAGE_IMPORT_DESCRIPTOR *iid;
+    const char *name;
+    void *funcAddress = NULL;
 
+    /* Get module of the specified address */
     if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, addr, &hModule ) || hModule == NULL )
         return FALSE;
 
@@ -621,8 +660,27 @@ static BOOL fill_module_info( void *addr, Dl_info *info )
     if( dwSize == 0 || dwSize == sizeof( module_filename ) )
         return FALSE;
 
-    info->dli_fbase = (void *) hModule;
     info->dli_fname = module_filename;
+    info->dli_fbase = (void *) hModule;
+    info->dli_sname = NULL;
+
+    /* First try to find function name and function address in module's export table */
+    if( get_image_section( hModule, IMAGE_DIRECTORY_ENTRY_EXPORT, (void **) &ied, NULL ) )
+        info->dli_sname = get_export_symbol_name( hModule, ied, addr, &funcAddress );
+
+    /* If symbol name is not known and we know which module is importing this address
+     * then try to find symbol name in this module's import table as the last resort. */
+    if( info->dli_sname == NULL && hModuleImport != NULL )
+    {
+        if( get_image_section( hModuleImport, IMAGE_DIRECTORY_ENTRY_IMPORT, (void **) &iid, NULL ) )
+        {
+            name = get_import_symbol_name( hModuleImport, iid, addr, &funcAddress );
+            if( name != NULL )
+                info->dli_sname = name;
+        }
+    }
+
+    info->dli_saddr = info->dli_sname == NULL ? NULL : funcAddress != NULL ? funcAddress : addr;
 
     return TRUE;
 }
@@ -630,36 +688,33 @@ static BOOL fill_module_info( void *addr, Dl_info *info )
 DLFCN_EXPORT
 int dladdr( void *addr, Dl_info *info )
 {
-    void *realAddr, *funcAddress = NULL;
-    HMODULE hModule;
-    IMAGE_IMPORT_DESCRIPTOR *iid;
-    DWORD iidSize = 0;
+    HMODULE hModule = NULL;
 
     if( addr == NULL || info == NULL )
-        return 0;
-
-    hModule = GetModuleHandleA( NULL );
-    if( hModule == NULL )
         return 0;
 
     if( !is_valid_address( addr ) )
         return 0;
 
-    realAddr = addr;
-
-    if( !get_image_section( hModule, IMAGE_DIRECTORY_ENTRY_IMPORT, (void **) &iid, &iidSize ) )
-        return 0;
-
     if( is_import_thunk( addr ) )
     {
         void *iat;
-        void *iatAddr = NULL;
-        DWORD iatSize = 0;
+        DWORD iatSize;
+
+        /* Get module of the import thunk address */
+        if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, addr, &hModule ) || hModule == NULL )
+            return 0;
 
         if( !get_image_section( hModule, IMAGE_DIRECTORY_ENTRY_IAT, &iat, &iatSize ) )
         {
             /* Fallback for cases where the iat is not defined,
              * for example i586-mingw32msvc-gcc */
+            IMAGE_IMPORT_DESCRIPTOR *iid;
+            DWORD iidSize;
+
+            if( !get_image_section( hModule, IMAGE_DIRECTORY_ENTRY_IMPORT, (void **) &iid, &iidSize ) )
+                return 0;
+
             if( iid == NULL || iid->Characteristics == 0 || iid->FirstThunk == 0 )
                 return 0;
 
@@ -668,19 +723,18 @@ int dladdr( void *addr, Dl_info *info )
             iatSize = iidSize - (DWORD) ( (BYTE *) iat - (BYTE *) iid );
         }
 
-        iatAddr = get_address_from_import_address_table( iat, iatSize, addr );
-        if( iatAddr == NULL )
+        addr = get_address_from_import_address_table( iat, iatSize, addr );
+
+        if( addr == NULL )
             return 0;
 
-        realAddr = iatAddr;
+        if( !is_valid_address( addr ) )
+            return 0;
     }
 
-    if( !fill_module_info( realAddr, info ) )
+    if( !fill_info( hModule, addr, info ) )
         return 0;
 
-    info->dli_sname = get_symbol_name( hModule, iid, realAddr, &funcAddress );
-
-    info->dli_saddr = !info->dli_sname ? NULL : funcAddress ? funcAddress : realAddr;
     return 1;
 }
 
