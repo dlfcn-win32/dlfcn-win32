@@ -642,7 +642,7 @@ static BOOL fill_info( void *addr, Dl_info *info )
 DLFCN_EXPORT
 int dladdr( void *addr, Dl_info *info )
 {
-    if( addr == NULL || info == NULL )
+    if( info == NULL )
         return 0;
 
     if( !is_valid_address( addr ) )
@@ -677,9 +677,6 @@ int dladdr( void *addr, Dl_info *info )
         }
 
         addr = get_address_from_import_address_table( iat, iatSize, addr );
-
-        if( addr == NULL )
-            return 0;
 
         if( !is_valid_address( addr ) )
             return 0;
