@@ -512,39 +512,6 @@ static BOOL get_image_section( HMODULE module, int index, void **ptr, DWORD *siz
     return TRUE;
 }
 
-/* Return symbol name for a given address from import table */
-static const char *get_import_symbol_name( HMODULE module, IMAGE_IMPORT_DESCRIPTOR *iid, void *addr, void **func_address )
-{
-    int i;
-    void *candidateAddr = NULL;
-    const char *candidateName = NULL;
-    BYTE *base = (BYTE *) module; /* Required to have correct calculations */
-
-    for( i = 0; iid[i].Characteristics != 0 && iid[i].FirstThunk != 0; i++ )
-    {
-        IMAGE_THUNK_DATA *thunkILT = (IMAGE_THUNK_DATA *)( base + iid[i].Characteristics );
-        IMAGE_THUNK_DATA *thunkIAT = (IMAGE_THUNK_DATA *)( base + iid[i].FirstThunk );
-
-        for( ; thunkILT->u1.AddressOfData != 0; thunkILT++, thunkIAT++ )
-        {
-            IMAGE_IMPORT_BY_NAME *nameData;
-
-            if( IMAGE_SNAP_BY_ORDINAL( thunkILT->u1.Ordinal ) )
-                continue;
-
-            if( (void *) thunkIAT->u1.Function > addr || candidateAddr >= (void *) thunkIAT->u1.Function )
-                continue;
-
-            candidateAddr = (void *) thunkIAT->u1.Function;
-            nameData = (IMAGE_IMPORT_BY_NAME *)( base + (ULONG_PTR) thunkILT->u1.AddressOfData );
-            candidateName = (const char *) nameData->Name;
-        }
-    }
-
-    *func_address = candidateAddr;
-    return candidateName;
-}
-
 /* Return symbol name for a given address from export table */
 static const char *get_export_symbol_name( HMODULE module, IMAGE_EXPORT_DIRECTORY *ied, void *addr, void **func_address )
 {
@@ -642,13 +609,11 @@ static void *get_address_from_import_address_table( void *iat, DWORD iat_size, v
 /* Holds module filename */
 static char module_filename[2*MAX_PATH];
 
-static BOOL fill_info( HMODULE hModuleImport, void *addr, Dl_info *info )
+static BOOL fill_info( void *addr, Dl_info *info )
 {
     HMODULE hModule;
     DWORD dwSize;
     IMAGE_EXPORT_DIRECTORY *ied;
-    IMAGE_IMPORT_DESCRIPTOR *iid;
-    const char *name;
     void *funcAddress = NULL;
 
     /* Get module of the specified address */
@@ -662,23 +627,12 @@ static BOOL fill_info( HMODULE hModuleImport, void *addr, Dl_info *info )
 
     info->dli_fname = module_filename;
     info->dli_fbase = (void *) hModule;
-    info->dli_sname = NULL;
 
-    /* First try to find function name and function address in module's export table */
+    /* Find function name and function address in module's export table */
     if( get_image_section( hModule, IMAGE_DIRECTORY_ENTRY_EXPORT, (void **) &ied, NULL ) )
         info->dli_sname = get_export_symbol_name( hModule, ied, addr, &funcAddress );
-
-    /* If symbol name is not known and we know which module is importing this address
-     * then try to find symbol name in this module's import table as the last resort. */
-    if( info->dli_sname == NULL && hModuleImport != NULL )
-    {
-        if( get_image_section( hModuleImport, IMAGE_DIRECTORY_ENTRY_IMPORT, (void **) &iid, NULL ) )
-        {
-            name = get_import_symbol_name( hModuleImport, iid, addr, &funcAddress );
-            if( name != NULL )
-                info->dli_sname = name;
-        }
-    }
+    else
+        info->dli_sname = NULL;
 
     info->dli_saddr = info->dli_sname == NULL ? NULL : funcAddress != NULL ? funcAddress : addr;
 
@@ -688,8 +642,6 @@ static BOOL fill_info( HMODULE hModuleImport, void *addr, Dl_info *info )
 DLFCN_EXPORT
 int dladdr( void *addr, Dl_info *info )
 {
-    HMODULE hModule = NULL;
-
     if( addr == NULL || info == NULL )
         return 0;
 
@@ -700,6 +652,7 @@ int dladdr( void *addr, Dl_info *info )
     {
         void *iat;
         DWORD iatSize;
+        HMODULE hModule;
 
         /* Get module of the import thunk address */
         if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, addr, &hModule ) || hModule == NULL )
@@ -732,7 +685,7 @@ int dladdr( void *addr, Dl_info *info )
             return 0;
     }
 
-    if( !fill_info( hModule, addr, info ) )
+    if( !fill_info( addr, info ) )
         return 0;
 
     return 1;
