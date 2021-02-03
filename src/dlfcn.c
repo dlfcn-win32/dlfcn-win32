@@ -38,11 +38,11 @@
 
 #ifdef _MSC_VER
 /* https://docs.microsoft.com/en-us/cpp/intrinsics/returnaddress */
-#pragma intrinsic(_ReturnAddress)
+#pragma intrinsic( _ReturnAddress )
 #else
 /* https://gcc.gnu.org/onlinedocs/gcc/Return-Address.html */
 #ifndef _ReturnAddress
-#define _ReturnAddress() (__builtin_extract_return_addr(__builtin_return_address(0)))
+#define _ReturnAddress( ) ( __builtin_extract_return_addr( __builtin_return_address( 0 ) ) )
 #endif
 #endif
 
@@ -90,12 +90,12 @@ static BOOL local_add( HMODULE hModule )
     pobject = local_search( hModule );
 
     /* Do not add object again if it's already on the list */
-    if( pobject )
+    if( pobject != NULL )
         return TRUE;
 
     for( pobject = &first_object; pobject->next; pobject = pobject->next );
 
-    nobject = (local_object*) malloc( sizeof( local_object ) );
+    nobject = (local_object *) malloc( sizeof( local_object ) );
 
     if( !nobject )
     {
@@ -120,7 +120,7 @@ static void local_rem( HMODULE hModule )
 
     pobject = local_search( hModule );
 
-    if( !pobject )
+    if( pobject == NULL )
         return;
 
     if( pobject->next )
@@ -159,7 +159,7 @@ static void save_err_str( const char *str )
       */
     pos = 0;
     error_buffer[pos++] = '"';
-    memcpy( error_buffer+pos, str, len );
+    memcpy( error_buffer + pos, str, len );
     pos += len;
     error_buffer[pos++] = '"';
     error_buffer[pos++] = ':';
@@ -167,7 +167,7 @@ static void save_err_str( const char *str )
 
     ret = FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, dwMessageId,
         MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),
-        error_buffer+pos, (DWORD) (sizeof(error_buffer)-pos), NULL );
+        error_buffer + pos, (DWORD) ( sizeof( error_buffer ) - pos ), NULL );
     pos += ret;
 
     /* When FormatMessageA() fails it returns zero and does not touch buffer
@@ -197,7 +197,7 @@ static void save_err_ptr_str( const void *ptr )
     for( i = 0; i < 2 * sizeof( ptr ); i++ )
     {
         num = ( ( (ULONG_PTR) ptr ) >> ( 8 * sizeof( ptr ) - 4 * ( i + 1 ) ) ) & 0xF;
-        ptr_buf[2+i] = num + ( ( num < 0xA ) ? '0' : ( 'A' - 0xA ) );
+        ptr_buf[2 + i] = num + ( ( num < 0xA ) ? '0' : ( 'A' - 0xA ) );
     }
 
     ptr_buf[2 + 2 * sizeof( ptr )] = 0;
@@ -234,9 +234,9 @@ void *dlopen( const char *file, int mode )
     /* Do not let Windows display the critical-error-handler message box */
     uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
 
-    if( file == 0 )
+    if( file == NULL )
     {
-        /* POSIX says that if the value of file is 0, a handle on a global
+        /* POSIX says that if the value of file is NULL, a handle on a global
          * symbol object must be provided. That object must be able to access
          * all symbols from the original program file, and any objects loaded
          * with the RTLD_GLOBAL flag.
