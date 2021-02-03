@@ -98,10 +98,7 @@ static BOOL local_add( HMODULE hModule )
     nobject = (local_object *) malloc( sizeof( local_object ) );
 
     if( !nobject )
-    {
-        SetLastError( ERROR_NOT_ENOUGH_MEMORY );
         return FALSE;
-    }
 
     pobject->next = nobject;
     nobject->next = NULL;
@@ -139,16 +136,10 @@ static void local_rem( HMODULE hModule )
 static char error_buffer[65535];
 static BOOL error_occurred;
 
-static void save_err_str( const char *str )
+static void save_err_str( const char *str, DWORD dwMessageId )
 {
-    DWORD dwMessageId;
     DWORD ret;
     size_t pos, len;
-
-    dwMessageId = GetLastError( );
-
-    if( dwMessageId == 0 )
-        return;
 
     len = strlen( str );
     if( len > sizeof( error_buffer ) - 5 )
@@ -185,7 +176,7 @@ static void save_err_str( const char *str )
     error_occurred = TRUE;
 }
 
-static void save_err_ptr_str( const void *ptr )
+static void save_err_ptr_str( const void *ptr, DWORD dwMessageId )
 {
     char ptr_buf[2 + 2 * sizeof( ptr ) + 1];
     char num;
@@ -202,7 +193,7 @@ static void save_err_ptr_str( const void *ptr )
 
     ptr_buf[2 + 2 * sizeof( ptr )] = 0;
 
-    save_err_str( ptr_buf );
+    save_err_str( ptr_buf, dwMessageId );
 }
 
 /* Load Psapi.dll at runtime, this avoids linking caveat */
@@ -249,7 +240,7 @@ void *dlopen( const char *file, int mode )
         hModule = GetModuleHandle( NULL );
 
         if( !hModule )
-            save_err_str( "(null)" );
+            save_err_str( "(null)", GetLastError( ) );
     }
     else
     {
@@ -262,8 +253,7 @@ void *dlopen( const char *file, int mode )
 
         if( len >= sizeof( lpFileName ) )
         {
-            SetLastError( ERROR_FILENAME_EXCED_RANGE );
-            save_err_str( file );
+            save_err_str( file, ERROR_FILENAME_EXCED_RANGE );
             hModule = NULL;
         }
         else
@@ -292,7 +282,7 @@ void *dlopen( const char *file, int mode )
 
             if( !hModule )
             {
-                save_err_str( lpFileName );
+                save_err_str( lpFileName, GetLastError( ) );
             }
             else
             {
@@ -312,7 +302,7 @@ void *dlopen( const char *file, int mode )
                 {
                     if( !local_add( hModule ) )
                     {
-                        save_err_str( lpFileName );
+                        save_err_str( lpFileName, ERROR_NOT_ENOUGH_MEMORY );
                         FreeLibrary( hModule );
                         hModule = NULL;
                     }
@@ -347,7 +337,7 @@ int dlclose( void *handle )
     if( ret )
         local_rem( hModule );
     else
-        save_err_ptr_str( handle );
+        save_err_ptr_str( handle, GetLastError( ) );
 
     /* dlclose's return value in inverted in relation to FreeLibrary's. */
     ret = !ret;
@@ -362,12 +352,14 @@ void *dlsym( void *handle, const char *name )
     FARPROC symbol;
     HMODULE hCaller;
     HMODULE hModule;
+    DWORD dwMessageId;
 
     error_occurred = FALSE;
 
     symbol = NULL;
     hCaller = NULL;
     hModule = GetModuleHandle( NULL );
+    dwMessageId = 0;
 
     if( handle == RTLD_DEFAULT )
     {
@@ -388,7 +380,10 @@ void *dlsym( void *handle, const char *name )
          * use standard GetModuleHandleExA() function.
          */
         if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR) _ReturnAddress( ), &hCaller ) )
+        {
+            dwMessageId = ERROR_INVALID_PARAMETER;
             goto end;
+        }
     }
 
     if( handle != RTLD_NEXT )
@@ -448,7 +443,7 @@ void *dlsym( void *handle, const char *name )
             }
             else
             {
-                SetLastError( ERROR_NOT_ENOUGH_MEMORY );
+                dwMessageId = ERROR_NOT_ENOUGH_MEMORY;
                 goto end;
             }
         }
@@ -457,9 +452,9 @@ void *dlsym( void *handle, const char *name )
 end:
     if( symbol == NULL )
     {
-        if( GetLastError() == 0 )
-            SetLastError( ERROR_PROC_NOT_FOUND );
-        save_err_str( name );
+        if( !dwMessageId )
+            dwMessageId = ERROR_PROC_NOT_FOUND;
+        save_err_str( name, dwMessageId );
     }
 
     return *(void **) (&symbol);
