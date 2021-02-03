@@ -61,6 +61,16 @@ typedef ULONG ULONG_PTR;
 #endif
 #include "dlfcn.h"
 
+#if defined( _MSC_VER ) && _MSC_VER >= 1300
+/* https://docs.microsoft.com/en-us/cpp/cpp/noinline */
+#define DLFCN_NOINLINE __declspec( noinline )
+#elif defined( __GNUC__ ) && ( ( __GNUC__ > 3 ) || ( __GNUC__ == 3 && __GNUC_MINOR__ >= 1 ) )
+/* https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html */
+#define DLFCN_NOINLINE __attribute__(( noinline ))
+#else
+#define DLFCN_NOINLINE
+#endif
+
 /* Note:
  * MSDN says these functions are not thread-safe. We make no efforts to have
  * any kind of thread safety.
@@ -418,7 +428,7 @@ int dlclose( void *handle )
     return (int) ret;
 }
 
-__declspec(noinline) /* Needed for _ReturnAddress() */
+DLFCN_NOINLINE /* Needed for _ReturnAddress() */
 DLFCN_EXPORT
 void *dlsym( void *handle, const char *name )
 {
