@@ -362,14 +362,12 @@ void *dlsym( void *handle, const char *name )
     FARPROC symbol;
     HMODULE hCaller;
     HMODULE hModule;
-    HANDLE hCurrentProc;
 
     error_occurred = FALSE;
 
     symbol = NULL;
     hCaller = NULL;
     hModule = GetModuleHandle( NULL );
-    hCurrentProc = GetCurrentProcess( );
 
     if( handle == RTLD_DEFAULT )
     {
@@ -407,10 +405,13 @@ void *dlsym( void *handle, const char *name )
 
     if( hModule == handle || handle == RTLD_NEXT )
     {
+        HANDLE hCurrentProc;
         HMODULE *modules;
         DWORD cbNeeded;
         DWORD dwSize;
         size_t i;
+
+        hCurrentProc = GetCurrentProcess( );
 
         /* GetModuleHandle( NULL ) only returns the current program file. So
          * if we want to get ALL loaded module including those in linked DLLs,
