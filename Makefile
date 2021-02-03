@@ -65,10 +65,10 @@ test-static.exe: tests/test.c $(TARGETS)
 	$(CC) $(CFLAGS) -o $@ $< libdl.a
 
 test-dladdr.exe: tests/test-dladdr.c $(TARGETS)
-	$(CC) $(CFLAGS) -DDLFCN_WIN32_SHARED -o $@ $< libdl.dll.a
+	$(CC) $(CFLAGS) -Wl,--export-all-symbols -DDLFCN_WIN32_SHARED -o $@ $< libdl.dll.a
 
 test-dladdr-static.exe: tests/test-dladdr.c $(TARGETS)
-	$(CC) $(CFLAGS) -o $@ $< libdl.a
+	$(CC) $(CFLAGS) -Wl,--export-all-symbols -o $@ $< libdl.a
 
 testdll.dll: tests/testdll.c
 	$(CC) $(CFLAGS) -shared -o $@ $^

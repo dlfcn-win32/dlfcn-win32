@@ -25,6 +25,13 @@ target_link_libraries(test-dladdr dl)
 if(UNIX)
     set_target_properties(test-dladdr PROPERTIES COMPILE_FLAGS "-Wl,--export-dynamic -fpie")
 endif()
+if(WIN32 AND NOT BUILD_SHARED_LIBS)
+    if(MSVC)
+        set_property(TARGET test-dladdr APPEND_STRING PROPERTY LINK_FLAGS "/EXPORT:dlopen /EXPORT:dladdr")
+    else()
+        set_property(TARGET test-dladdr APPEND_STRING PROPERTY LINK_FLAGS "-Wl,--export-all-symbols")
+    endif()
+endif()
 
 install(TARGETS test-dladdr EXPORT dlfcn-win32-targets RUNTIME DESTINATION bin)
 
