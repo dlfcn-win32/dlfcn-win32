@@ -24,9 +24,6 @@
  * THE SOFTWARE.
  */
 
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0501
-#endif
 #ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
@@ -35,6 +32,14 @@
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+/* Older SDK versions do not have these macros */
+#ifndef GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+#define GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS 0x4
+#endif
+#ifndef GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT
+#define GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT 0x2
+#endif
 
 #ifdef _MSC_VER
 /* https://docs.microsoft.com/en-us/cpp/intrinsics/returnaddress */
@@ -194,6 +199,44 @@ static void save_err_ptr_str( const void *ptr, DWORD dwMessageId )
     ptr_buf[2 + 2 * sizeof( ptr )] = 0;
 
     save_err_str( ptr_buf, dwMessageId );
+}
+
+static HMODULE MyGetModuleHandleFromAddress( void *addr )
+{
+    static BOOL (WINAPI *GetModuleHandleExAPtr)(DWORD, LPCSTR, HMODULE *) = NULL;
+    static BOOL failed = FALSE;
+    HMODULE kernel32;
+    HMODULE hModule;
+    MEMORY_BASIC_INFORMATION info;
+    SIZE_T sLen;
+
+    if( !failed && GetModuleHandleExAPtr == NULL )
+    {
+        kernel32 = GetModuleHandleA( "Kernel32.dll" );
+        if( kernel32 != NULL )
+            GetModuleHandleExAPtr = (BOOL (WINAPI *)(DWORD, LPCSTR, HMODULE *)) GetProcAddress( kernel32, "GetModuleHandleExA" );
+        if( GetModuleHandleExAPtr == NULL )
+            failed = TRUE;
+    }
+
+    if( !failed )
+    {
+        /* If GetModuleHandleExA is available use it with GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS */
+        if( !GetModuleHandleExAPtr( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR) addr, &hModule ) )
+            return NULL;
+    }
+    else
+    {
+        /* To get HMODULE from address use undocumented hack from https://stackoverflow.com/a/2396380
+         * The HMODULE of a DLL is the same value as the module's base address.
+         */
+        sLen = VirtualQuery( addr, &info, sizeof( info ) );
+        if( sLen != sizeof( info ) )
+            return NULL;
+        hModule = (HMODULE) info.AllocationBase;
+    }
+
+    return hModule;
 }
 
 /* Load Psapi.dll at runtime, this avoids linking caveat */
@@ -402,9 +445,12 @@ void *dlsym( void *handle, const char *name )
          * The next object is the one found upon the application of a load
          * order symbol resolution algorithm. To get caller function of dlsym()
          * use _ReturnAddress() intrinsic. To get HMODULE of caller function
-         * use standard GetModuleHandleExA() function.
+         * use MyGetModuleHandleFromAddress() which calls either standard
+         * GetModuleHandleExA() function or hack via VirtualQuery().
          */
-        if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR) _ReturnAddress( ), &hCaller ) )
+        hCaller = MyGetModuleHandleFromAddress( _ReturnAddress( ) );
+
+        if( hCaller == NULL )
         {
             dwMessageId = ERROR_INVALID_PARAMETER;
             goto end;
@@ -638,7 +684,9 @@ static BOOL fill_info( void *addr, Dl_info *info )
     void *funcAddress = NULL;
 
     /* Get module of the specified address */
-    if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, addr, &hModule ) || hModule == NULL )
+    hModule = MyGetModuleHandleFromAddress( addr );
+
+    if( hModule == NULL )
         return FALSE;
 
     dwSize = GetModuleFileNameA( hModule, module_filename, sizeof( module_filename ) );
@@ -676,7 +724,9 @@ int dladdr( void *addr, Dl_info *info )
         HMODULE hModule;
 
         /* Get module of the import thunk address */
-        if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, addr, &hModule ) || hModule == NULL )
+        hModule = MyGetModuleHandleFromAddress( addr );
+
+        if( hModule == NULL )
             return 0;
 
         if( !get_image_section( hModule, IMAGE_DIRECTORY_ENTRY_IAT, &iat, &iatSize ) )
