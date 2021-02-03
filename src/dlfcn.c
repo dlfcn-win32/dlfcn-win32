@@ -199,16 +199,41 @@ static void save_err_ptr_str( const void *ptr, DWORD dwMessageId )
 /* Load Psapi.dll at runtime, this avoids linking caveat */
 static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded )
 {
-    static BOOL (WINAPI *EnumProcessModulesPtr)(HANDLE, HMODULE *, DWORD, LPDWORD);
+    static BOOL (WINAPI *EnumProcessModulesPtr)(HANDLE, HMODULE *, DWORD, LPDWORD) = NULL;
+    static BOOL failed = FALSE;
+    UINT uMode;
     HMODULE psapi;
 
-    if( !EnumProcessModulesPtr )
+    if( failed )
+        return FALSE;
+
+    if( EnumProcessModulesPtr == NULL )
     {
-        psapi = LoadLibraryA( "Psapi.dll" );
-        if( psapi )
-            EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) GetProcAddress( psapi, "EnumProcessModules" );
-        if( !EnumProcessModulesPtr )
-            return 0;
+        /* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
+        psapi = GetModuleHandleA( "Kernel32.dll" );
+        if( psapi != NULL )
+            EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) GetProcAddress( psapi, "K32EnumProcessModules" );
+
+        /* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
+        if( EnumProcessModulesPtr == NULL )
+        {
+            /* Do not let Windows display the critical-error-handler message box */
+            uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
+            psapi = LoadLibraryA( "Psapi.dll" );
+            if( psapi != NULL )
+            {
+                EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) GetProcAddress( psapi, "EnumProcessModules" );
+                if( EnumProcessModulesPtr == NULL )
+                    FreeLibrary( psapi );
+            }
+            SetErrorMode( uMode );
+        }
+
+        if( EnumProcessModulesPtr == NULL )
+        {
+            failed = TRUE;
+            return FALSE;
+        }
     }
 
     return EnumProcessModulesPtr( hProcess, lphModule, cb, lpcbNeeded );
