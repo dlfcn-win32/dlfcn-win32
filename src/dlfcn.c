@@ -33,6 +33,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* Older versions do not have this type */
+#if _WIN32_WINNT < 0x0500
+typedef ULONG ULONG_PTR;
+#endif
+
 /* Older SDK versions do not have these macros */
 #ifndef GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
 #define GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS 0x4
