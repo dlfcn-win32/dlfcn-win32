@@ -24,9 +24,6 @@
  * THE SOFTWARE.
  */
 
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0501
-#endif
 #ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
@@ -36,13 +33,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* Older versions do not have this type */
+#if _WIN32_WINNT < 0x0500
+typedef ULONG ULONG_PTR;
+#endif
+
+/* Older SDK versions do not have these macros */
+#ifndef GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+#define GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS 0x4
+#endif
+#ifndef GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT
+#define GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT 0x2
+#endif
+
 #ifdef _MSC_VER
 /* https://docs.microsoft.com/en-us/cpp/intrinsics/returnaddress */
-#pragma intrinsic(_ReturnAddress)
+#pragma intrinsic( _ReturnAddress )
 #else
 /* https://gcc.gnu.org/onlinedocs/gcc/Return-Address.html */
 #ifndef _ReturnAddress
-#define _ReturnAddress() (__builtin_extract_return_addr(__builtin_return_address(0)))
+#define _ReturnAddress( ) ( __builtin_extract_return_addr( __builtin_return_address( 0 ) ) )
 #endif
 #endif
 
@@ -50,6 +60,16 @@
 #define DLFCN_WIN32_EXPORTS
 #endif
 #include "dlfcn.h"
+
+#if defined( _MSC_VER ) && _MSC_VER >= 1300
+/* https://docs.microsoft.com/en-us/cpp/cpp/noinline */
+#define DLFCN_NOINLINE __declspec( noinline )
+#elif defined( __GNUC__ ) && ( ( __GNUC__ > 3 ) || ( __GNUC__ == 3 && __GNUC_MINOR__ >= 1 ) )
+/* https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html */
+#define DLFCN_NOINLINE __attribute__(( noinline ))
+#else
+#define DLFCN_NOINLINE
+#endif
 
 /* Note:
  * MSDN says these functions are not thread-safe. We make no efforts to have
@@ -90,18 +110,15 @@ static BOOL local_add( HMODULE hModule )
     pobject = local_search( hModule );
 
     /* Do not add object again if it's already on the list */
-    if( pobject )
+    if( pobject != NULL )
         return TRUE;
 
     for( pobject = &first_object; pobject->next; pobject = pobject->next );
 
-    nobject = (local_object*) malloc( sizeof( local_object ) );
+    nobject = (local_object *) malloc( sizeof( local_object ) );
 
     if( !nobject )
-    {
-        SetLastError( ERROR_NOT_ENOUGH_MEMORY );
         return FALSE;
-    }
 
     pobject->next = nobject;
     nobject->next = NULL;
@@ -120,7 +137,7 @@ static void local_rem( HMODULE hModule )
 
     pobject = local_search( hModule );
 
-    if( !pobject )
+    if( pobject == NULL )
         return;
 
     if( pobject->next )
@@ -139,16 +156,10 @@ static void local_rem( HMODULE hModule )
 static char error_buffer[65535];
 static BOOL error_occurred;
 
-static void save_err_str( const char *str )
+static void save_err_str( const char *str, DWORD dwMessageId )
 {
-    DWORD dwMessageId;
     DWORD ret;
     size_t pos, len;
-
-    dwMessageId = GetLastError( );
-
-    if( dwMessageId == 0 )
-        return;
 
     len = strlen( str );
     if( len > sizeof( error_buffer ) - 5 )
@@ -159,7 +170,7 @@ static void save_err_str( const char *str )
       */
     pos = 0;
     error_buffer[pos++] = '"';
-    memcpy( error_buffer+pos, str, len );
+    memcpy( error_buffer + pos, str, len );
     pos += len;
     error_buffer[pos++] = '"';
     error_buffer[pos++] = ':';
@@ -167,7 +178,7 @@ static void save_err_str( const char *str )
 
     ret = FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, dwMessageId,
         MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),
-        error_buffer+pos, (DWORD) (sizeof(error_buffer)-pos), NULL );
+        error_buffer + pos, (DWORD) ( sizeof( error_buffer ) - pos ), NULL );
     pos += ret;
 
     /* When FormatMessageA() fails it returns zero and does not touch buffer
@@ -185,7 +196,7 @@ static void save_err_str( const char *str )
     error_occurred = TRUE;
 }
 
-static void save_err_ptr_str( const void *ptr )
+static void save_err_ptr_str( const void *ptr, DWORD dwMessageId )
 {
     char ptr_buf[2 + 2 * sizeof( ptr ) + 1];
     char num;
@@ -196,28 +207,91 @@ static void save_err_ptr_str( const void *ptr )
 
     for( i = 0; i < 2 * sizeof( ptr ); i++ )
     {
-        num = ( ( (ULONG_PTR) ptr ) >> ( 8 * sizeof( ptr ) - 4 * ( i + 1 ) ) ) & 0xF;
-        ptr_buf[2+i] = num + ( ( num < 0xA ) ? '0' : ( 'A' - 0xA ) );
+        num = (char) ( ( ( (ULONG_PTR) ptr ) >> ( 8 * sizeof( ptr ) - 4 * ( i + 1 ) ) ) & 0xF );
+        ptr_buf[2 + i] = num + ( ( num < 0xA ) ? '0' : ( 'A' - 0xA ) );
     }
 
     ptr_buf[2 + 2 * sizeof( ptr )] = 0;
 
-    save_err_str( ptr_buf );
+    save_err_str( ptr_buf, dwMessageId );
+}
+
+static HMODULE MyGetModuleHandleFromAddress( void *addr )
+{
+    static BOOL (WINAPI *GetModuleHandleExAPtr)(DWORD, LPCSTR, HMODULE *) = NULL;
+    static BOOL failed = FALSE;
+    HMODULE kernel32;
+    HMODULE hModule;
+    MEMORY_BASIC_INFORMATION info;
+    SIZE_T sLen;
+
+    if( !failed && GetModuleHandleExAPtr == NULL )
+    {
+        kernel32 = GetModuleHandleA( "Kernel32.dll" );
+        if( kernel32 != NULL )
+            GetModuleHandleExAPtr = (BOOL (WINAPI *)(DWORD, LPCSTR, HMODULE *)) GetProcAddress( kernel32, "GetModuleHandleExA" );
+        if( GetModuleHandleExAPtr == NULL )
+            failed = TRUE;
+    }
+
+    if( !failed )
+    {
+        /* If GetModuleHandleExA is available use it with GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS */
+        if( !GetModuleHandleExAPtr( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR) addr, &hModule ) )
+            return NULL;
+    }
+    else
+    {
+        /* To get HMODULE from address use undocumented hack from https://stackoverflow.com/a/2396380
+         * The HMODULE of a DLL is the same value as the module's base address.
+         */
+        sLen = VirtualQuery( addr, &info, sizeof( info ) );
+        if( sLen != sizeof( info ) )
+            return NULL;
+        hModule = (HMODULE) info.AllocationBase;
+    }
+
+    return hModule;
 }
 
 /* Load Psapi.dll at runtime, this avoids linking caveat */
 static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded )
 {
-    static BOOL (WINAPI *EnumProcessModulesPtr)(HANDLE, HMODULE *, DWORD, LPDWORD);
+    static BOOL (WINAPI *EnumProcessModulesPtr)(HANDLE, HMODULE *, DWORD, LPDWORD) = NULL;
+    static BOOL failed = FALSE;
+    UINT uMode;
     HMODULE psapi;
 
-    if( !EnumProcessModulesPtr )
+    if( failed )
+        return FALSE;
+
+    if( EnumProcessModulesPtr == NULL )
     {
-        psapi = LoadLibraryA( "Psapi.dll" );
-        if( psapi )
-            EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) GetProcAddress( psapi, "EnumProcessModules" );
-        if( !EnumProcessModulesPtr )
-            return 0;
+        /* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
+        psapi = GetModuleHandleA( "Kernel32.dll" );
+        if( psapi != NULL )
+            EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) GetProcAddress( psapi, "K32EnumProcessModules" );
+
+        /* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
+        if( EnumProcessModulesPtr == NULL )
+        {
+            /* Do not let Windows display the critical-error-handler message box */
+            uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
+            psapi = LoadLibraryA( "Psapi.dll" );
+            if( psapi != NULL )
+            {
+                EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) GetProcAddress( psapi, "EnumProcessModules" );
+                if( EnumProcessModulesPtr == NULL )
+                    FreeLibrary( psapi );
+            }
+            SetErrorMode( uMode );
+        }
+
+        if( EnumProcessModulesPtr == NULL )
+        {
+            failed = TRUE;
+            return FALSE;
+        }
     }
 
     return EnumProcessModulesPtr( hProcess, lphModule, cb, lpcbNeeded );
@@ -234,9 +308,9 @@ void *dlopen( const char *file, int mode )
     /* Do not let Windows display the critical-error-handler message box */
     uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
 
-    if( file == 0 )
+    if( file == NULL )
     {
-        /* POSIX says that if the value of file is 0, a handle on a global
+        /* POSIX says that if the value of file is NULL, a handle on a global
          * symbol object must be provided. That object must be able to access
          * all symbols from the original program file, and any objects loaded
          * with the RTLD_GLOBAL flag.
@@ -249,7 +323,7 @@ void *dlopen( const char *file, int mode )
         hModule = GetModuleHandle( NULL );
 
         if( !hModule )
-            save_err_str( "(null)" );
+            save_err_str( "(null)", GetLastError( ) );
     }
     else
     {
@@ -262,8 +336,7 @@ void *dlopen( const char *file, int mode )
 
         if( len >= sizeof( lpFileName ) )
         {
-            SetLastError( ERROR_FILENAME_EXCED_RANGE );
-            save_err_str( file );
+            save_err_str( file, ERROR_FILENAME_EXCED_RANGE );
             hModule = NULL;
         }
         else
@@ -292,7 +365,7 @@ void *dlopen( const char *file, int mode )
 
             if( !hModule )
             {
-                save_err_str( lpFileName );
+                save_err_str( lpFileName, GetLastError( ) );
             }
             else
             {
@@ -312,7 +385,7 @@ void *dlopen( const char *file, int mode )
                 {
                     if( !local_add( hModule ) )
                     {
-                        save_err_str( lpFileName );
+                        save_err_str( lpFileName, ERROR_NOT_ENOUGH_MEMORY );
                         FreeLibrary( hModule );
                         hModule = NULL;
                     }
@@ -347,7 +420,7 @@ int dlclose( void *handle )
     if( ret )
         local_rem( hModule );
     else
-        save_err_ptr_str( handle );
+        save_err_ptr_str( handle, GetLastError( ) );
 
     /* dlclose's return value in inverted in relation to FreeLibrary's. */
     ret = !ret;
@@ -355,21 +428,21 @@ int dlclose( void *handle )
     return (int) ret;
 }
 
-__declspec(noinline) /* Needed for _ReturnAddress() */
+DLFCN_NOINLINE /* Needed for _ReturnAddress() */
 DLFCN_EXPORT
 void *dlsym( void *handle, const char *name )
 {
     FARPROC symbol;
     HMODULE hCaller;
     HMODULE hModule;
-    HANDLE hCurrentProc;
+    DWORD dwMessageId;
 
     error_occurred = FALSE;
 
     symbol = NULL;
     hCaller = NULL;
     hModule = GetModuleHandle( NULL );
-    hCurrentProc = GetCurrentProcess( );
+    dwMessageId = 0;
 
     if( handle == RTLD_DEFAULT )
     {
@@ -387,10 +460,16 @@ void *dlsym( void *handle, const char *name )
          * The next object is the one found upon the application of a load
          * order symbol resolution algorithm. To get caller function of dlsym()
          * use _ReturnAddress() intrinsic. To get HMODULE of caller function
-         * use standard GetModuleHandleExA() function.
+         * use MyGetModuleHandleFromAddress() which calls either standard
+         * GetModuleHandleExA() function or hack via VirtualQuery().
          */
-        if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR) _ReturnAddress( ), &hCaller ) )
+        hCaller = MyGetModuleHandleFromAddress( _ReturnAddress( ) );
+
+        if( hCaller == NULL )
+        {
+            dwMessageId = ERROR_INVALID_PARAMETER;
             goto end;
+        }
     }
 
     if( handle != RTLD_NEXT )
@@ -407,10 +486,13 @@ void *dlsym( void *handle, const char *name )
 
     if( hModule == handle || handle == RTLD_NEXT )
     {
+        HANDLE hCurrentProc;
         HMODULE *modules;
         DWORD cbNeeded;
         DWORD dwSize;
         size_t i;
+
+        hCurrentProc = GetCurrentProcess( );
 
         /* GetModuleHandle( NULL ) only returns the current program file. So
          * if we want to get ALL loaded module including those in linked DLLs,
@@ -447,7 +529,7 @@ void *dlsym( void *handle, const char *name )
             }
             else
             {
-                SetLastError( ERROR_NOT_ENOUGH_MEMORY );
+                dwMessageId = ERROR_NOT_ENOUGH_MEMORY;
                 goto end;
             }
         }
@@ -456,9 +538,9 @@ void *dlsym( void *handle, const char *name )
 end:
     if( symbol == NULL )
     {
-        if( GetLastError() == 0 )
-            SetLastError( ERROR_PROC_NOT_FOUND );
-        save_err_str( name );
+        if( !dwMessageId )
+            dwMessageId = ERROR_PROC_NOT_FOUND;
+        save_err_str( name, dwMessageId );
     }
 
     return *(void **) (&symbol);
@@ -617,7 +699,9 @@ static BOOL fill_info( void *addr, Dl_info *info )
     void *funcAddress = NULL;
 
     /* Get module of the specified address */
-    if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, addr, &hModule ) || hModule == NULL )
+    hModule = MyGetModuleHandleFromAddress( addr );
+
+    if( hModule == NULL )
         return FALSE;
 
     dwSize = GetModuleFileNameA( hModule, module_filename, sizeof( module_filename ) );
@@ -655,7 +739,9 @@ int dladdr( void *addr, Dl_info *info )
         HMODULE hModule;
 
         /* Get module of the import thunk address */
-        if( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, addr, &hModule ) || hModule == NULL )
+        hModule = MyGetModuleHandleFromAddress( addr );
+
+        if( hModule == NULL )
             return 0;
 
         if( !get_image_section( hModule, IMAGE_DIRECTORY_ENTRY_IAT, &iat, &iatSize ) )

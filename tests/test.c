@@ -342,7 +342,7 @@ int main()
     *(void **) (&fwrite_local) = dlsym( global, "fwrite" );
     if (!fwrite_local)
     {
-        error = dlerror();
+        error = dlerror( );
         printf("ERROR\tCould not get symbol from global handle: %s\n",
             error ? error : "");
         CLOSE_LIB;
@@ -360,7 +360,7 @@ int main()
     *(void **) (&fputs_default) = dlsym( RTLD_DEFAULT, "fputs" );
     if (!fputs_default)
     {
-        error = dlerror();
+        error = dlerror( );
         printf("ERROR\tCould not get symbol from default handle: %s\n",
             error ? error : "");
         CLOSE_LIB;
@@ -623,7 +623,7 @@ int main()
     *(void **) (&function) = dlsym( global, "fwrite" );
     if (!function)
     {
-        error = dlerror();
+        error = dlerror( );
         printf("ERROR\tCould not get symbol from global handle: %s\n",
             error ? error : "");
         CLOSE_LIB;
@@ -659,7 +659,7 @@ int main()
     *(void **) (&function) = dlsym( global, "function3" );
     if (!function)
     {
-        error = dlerror();
+        error = dlerror( );
         printf("ERROR\tCould not get symbol from global handle: %s\n",
             error ? error : "");
         CLOSE_LIB;
