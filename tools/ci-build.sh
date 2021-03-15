@@ -63,8 +63,7 @@ case "$ci_buildsys" in
                     -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY     \
                     -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY     \
                     -DCMAKE_SYSTEM_NAME=Windows                  \
-                    -DENABLE_WINE=ON                             \
-                    -DWINE_EXECUTABLE=/usr/bin/wine              \
+                    -DCMAKE_CROSSCOMPILING_EMULATOR=/usr/bin/wine              \
                     $cmake_options \
                     ..
                 ;;

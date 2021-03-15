@@ -43,6 +43,8 @@ target_link_libraries(<target> ${CMAKE_DL_LIBS})
 ...
 ~~~
 
+When cross-compiling you might want to set CMAKE_CROSSCOMPILING_EMULATOR to the path of wine to run tests.
+
 Author
 ------
 
