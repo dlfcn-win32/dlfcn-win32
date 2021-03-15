@@ -216,7 +216,7 @@ static void save_err_ptr_str( const void *ptr, DWORD dwMessageId )
     save_err_str( ptr_buf, dwMessageId );
 }
 
-static HMODULE MyGetModuleHandleFromAddress( void *addr )
+static HMODULE MyGetModuleHandleFromAddress( const void *addr )
 {
     static BOOL (WINAPI *GetModuleHandleExAPtr)(DWORD, LPCSTR, HMODULE *) = NULL;
     static BOOL failed = FALSE;
@@ -237,7 +237,7 @@ static HMODULE MyGetModuleHandleFromAddress( void *addr )
     if( !failed )
     {
         /* If GetModuleHandleExA is available use it with GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS */
-        if( !GetModuleHandleExAPtr( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR) addr, &hModule ) )
+        if( !GetModuleHandleExAPtr( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, addr, &hModule ) )
             return NULL;
     }
     else
@@ -595,7 +595,7 @@ static BOOL get_image_section( HMODULE module, int index, void **ptr, DWORD *siz
 }
 
 /* Return symbol name for a given address from export table */
-static const char *get_export_symbol_name( HMODULE module, IMAGE_EXPORT_DIRECTORY *ied, void *addr, void **func_address )
+static const char *get_export_symbol_name( HMODULE module, IMAGE_EXPORT_DIRECTORY *ied, const void *addr, void **func_address )
 {
     DWORD i;
     void *candidateAddr = NULL;
@@ -628,7 +628,7 @@ static const char *get_export_symbol_name( HMODULE module, IMAGE_EXPORT_DIRECTOR
     return NULL;
 }
 
-static BOOL is_valid_address( void *addr )
+static BOOL is_valid_address( const void *addr )
 {
     MEMORY_BASIC_INFORMATION info;
     SIZE_T result;
@@ -652,7 +652,7 @@ static BOOL is_valid_address( void *addr )
  * the import address table (iat), which is partially maintained by
  * the runtime linker.
  */
-static BOOL is_import_thunk( void *addr )
+static BOOL is_import_thunk( const void *addr )
 {
     return *(short *) addr == 0x25ff ? TRUE : FALSE;
 }
@@ -660,7 +660,7 @@ static BOOL is_import_thunk( void *addr )
 /* Return adress from the import address table (iat),
  * if the original address points to a thunk table entry.
  */
-static void *get_address_from_import_address_table( void *iat, DWORD iat_size, void *addr )
+static void *get_address_from_import_address_table( void *iat, DWORD iat_size, const void *addr )
 {
     BYTE *thkp = (BYTE *) addr;
     /* Get offset from thunk table (after instruction 0xff 0x25)
@@ -691,7 +691,7 @@ static void *get_address_from_import_address_table( void *iat, DWORD iat_size, v
 /* Holds module filename */
 static char module_filename[2*MAX_PATH];
 
-static BOOL fill_info( void *addr, Dl_info *info )
+static BOOL fill_info( const void *addr, Dl_info *info )
 {
     HMODULE hModule;
     DWORD dwSize;
@@ -718,13 +718,13 @@ static BOOL fill_info( void *addr, Dl_info *info )
     else
         info->dli_sname = NULL;
 
-    info->dli_saddr = info->dli_sname == NULL ? NULL : funcAddress != NULL ? funcAddress : addr;
+    info->dli_saddr = info->dli_sname == NULL ? NULL : funcAddress != NULL ? funcAddress : (void *) addr;
 
     return TRUE;
 }
 
 DLFCN_EXPORT
-int dladdr( void *addr, Dl_info *info )
+int dladdr( const void *addr, Dl_info *info )
 {
     if( info == NULL )
         return 0;
