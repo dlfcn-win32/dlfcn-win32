@@ -85,7 +85,7 @@ DLFCN_EXPORT void *dlsym(void *handle, const char *name);
 DLFCN_EXPORT char *dlerror(void);
 
 /* Translate address to symbolic information (no POSIX standard) */
-DLFCN_EXPORT int dladdr(void *addr, Dl_info *info);
+DLFCN_EXPORT int dladdr(const void *addr, Dl_info *info);
 
 #ifdef __cplusplus
 }
