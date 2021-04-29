@@ -15,9 +15,7 @@ if(WIN32)
     add_executable(t_dlfcn test.c)
     target_link_libraries(t_dlfcn dl)
 
-    if(RUN_TESTS)
-        add_test(NAME t_dlfcn COMMAND ${WRAPPER} $<TARGET_FILE:t_dlfcn> WORKING_DIRECTORY $<TARGET_FILE_DIR:t_dlfcn>)
-    endif()
+    add_test(NAME t_dlfcn COMMAND t_dlfcn WORKING_DIRECTORY $<TARGET_FILE_DIR:t_dlfcn> )
 endif()
 
 add_executable(test-dladdr test-dladdr.c)
@@ -35,6 +33,4 @@ endif()
 
 install(TARGETS test-dladdr EXPORT dlfcn-win32-targets RUNTIME DESTINATION bin)
 
-if(RUN_TESTS)
-    add_test(NAME test-dladdr COMMAND ${WRAPPER} $<TARGET_FILE:test-dladdr> WORKING_DIRECTORY $<TARGET_FILE_DIR:test-dladdr>)
-endif()
+add_test(NAME test-dladdr COMMAND test-dladdr WORKING_DIRECTORY $<TARGET_FILE_DIR:test-dladdr>)
