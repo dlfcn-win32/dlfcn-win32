@@ -12,9 +12,13 @@ Windows without any modifications.
 It follows the standard as described here:
 
 http://www.opengroup.org/onlinepubs/009695399/basedefs/dlfcn.h.html
+
 http://www.opengroup.org/onlinepubs/009695399/functions/dlerror.html
+
 http://www.opengroup.org/onlinepubs/009695399/functions/dlsym.html
+
 http://www.opengroup.org/onlinepubs/009695399/functions/dlclose.html
+
 http://www.opengroup.org/onlinepubs/009695399/functions/dlopen.html
 
 Using This Library
