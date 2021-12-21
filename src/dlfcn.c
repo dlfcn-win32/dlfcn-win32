@@ -216,6 +216,35 @@ static void save_err_ptr_str( const void *ptr, DWORD dwMessageId )
     save_err_str( ptr_buf, dwMessageId );
 }
 
+static UINT MySetErrorMode( UINT uMode )
+{
+    static BOOL (WINAPI *SetThreadErrorModePtr)(DWORD, DWORD *) = NULL;
+    static BOOL failed = FALSE;
+    HMODULE kernel32;
+    DWORD oldMode;
+
+    if( !failed && SetThreadErrorModePtr == NULL )
+    {
+        kernel32 = GetModuleHandleA( "Kernel32.dll" );
+        if( kernel32 != NULL )
+            SetThreadErrorModePtr = (BOOL (WINAPI *)(DWORD, DWORD *)) (LPVOID) GetProcAddress( kernel32, "SetThreadErrorMode" );
+        if( SetThreadErrorModePtr == NULL )
+            failed = TRUE;
+    }
+
+    if( !failed )
+    {
+        if( !SetThreadErrorModePtr( uMode, &oldMode ) )
+            return 0;
+        else
+            return oldMode;
+    }
+    else
+    {
+        return SetErrorMode( uMode );
+    }
+}
+
 static HMODULE MyGetModuleHandleFromAddress( const void *addr )
 {
     static BOOL (WINAPI *GetModuleHandleExAPtr)(DWORD, LPCSTR, HMODULE *) = NULL;
@@ -276,7 +305,7 @@ static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb,
         if( EnumProcessModulesPtr == NULL )
         {
             /* Do not let Windows display the critical-error-handler message box */
-            uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
+            uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
             psapi = LoadLibraryA( "Psapi.dll" );
             if( psapi != NULL )
             {
@@ -284,7 +313,7 @@ static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb,
                 if( EnumProcessModulesPtr == NULL )
                     FreeLibrary( psapi );
             }
-            SetErrorMode( uMode );
+            MySetErrorMode( uMode );
         }
 
         if( EnumProcessModulesPtr == NULL )
@@ -306,7 +335,7 @@ void *dlopen( const char *file, int mode )
     error_occurred = FALSE;
 
     /* Do not let Windows display the critical-error-handler message box */
-    uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
+    uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
 
     if( file == NULL )
     {
@@ -399,7 +428,7 @@ void *dlopen( const char *file, int mode )
     }
 
     /* Return to previous state of the error-mode bit flags. */
-    SetErrorMode( uMode );
+    MySetErrorMode( uMode );
 
     return (void *) hModule;
 }
