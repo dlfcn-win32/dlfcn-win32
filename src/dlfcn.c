@@ -229,7 +229,7 @@ static HMODULE MyGetModuleHandleFromAddress( const void *addr )
     {
         kernel32 = GetModuleHandleA( "Kernel32.dll" );
         if( kernel32 != NULL )
-            GetModuleHandleExAPtr = (BOOL (WINAPI *)(DWORD, LPCSTR, HMODULE *)) GetProcAddress( kernel32, "GetModuleHandleExA" );
+            GetModuleHandleExAPtr = (BOOL (WINAPI *)(DWORD, LPCSTR, HMODULE *)) (LPVOID) GetProcAddress( kernel32, "GetModuleHandleExA" );
         if( GetModuleHandleExAPtr == NULL )
             failed = TRUE;
     }
@@ -270,7 +270,7 @@ static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb,
         /* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
         psapi = GetModuleHandleA( "Kernel32.dll" );
         if( psapi != NULL )
-            EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) GetProcAddress( psapi, "K32EnumProcessModules" );
+            EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) (LPVOID) GetProcAddress( psapi, "K32EnumProcessModules" );
 
         /* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
         if( EnumProcessModulesPtr == NULL )
@@ -280,7 +280,7 @@ static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb,
             psapi = LoadLibraryA( "Psapi.dll" );
             if( psapi != NULL )
             {
-                EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) GetProcAddress( psapi, "EnumProcessModules" );
+                EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) (LPVOID) GetProcAddress( psapi, "EnumProcessModules" );
                 if( EnumProcessModulesPtr == NULL )
                     FreeLibrary( psapi );
             }
