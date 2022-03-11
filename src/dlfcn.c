@@ -597,14 +597,20 @@ char *dlerror( void )
 static BOOL get_image_section( HMODULE module, int index, void **ptr, DWORD *size )
 {
     IMAGE_DOS_HEADER *dosHeader;
+    IMAGE_NT_HEADERS *ntHeaders;
     IMAGE_OPTIONAL_HEADER *optionalHeader;
 
     dosHeader = (IMAGE_DOS_HEADER *) module;
 
-    if( dosHeader->e_magic != 0x5A4D )
+    if( dosHeader->e_magic != IMAGE_DOS_SIGNATURE )
         return FALSE;
 
-    optionalHeader = (IMAGE_OPTIONAL_HEADER *) ( (BYTE *) module + dosHeader->e_lfanew + 24 );
+    ntHeaders = (IMAGE_NT_HEADERS *) ( (BYTE *) dosHeader + dosHeader->e_lfanew );
+
+    if( ntHeaders->Signature != IMAGE_NT_SIGNATURE )
+        return FALSE;
+
+    optionalHeader = &ntHeaders->OptionalHeader;
 
     if( optionalHeader->Magic != IMAGE_NT_OPTIONAL_HDR_MAGIC )
         return FALSE;
