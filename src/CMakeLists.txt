@@ -5,7 +5,10 @@ set(sources dlfcn.c)
 add_library(dl ${sources})
 
 # Correctly export the location of installed includes in the target
-target_include_directories(dl INTERFACE $<INSTALL_INTERFACE:include>)
+target_include_directories(dl
+  PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    $<INSTALL_INTERFACE:include>)
 
 # dot not add -D<target>_EXPORTS
 set_target_properties(dl PROPERTIES DEFINE_SYMBOL "")
