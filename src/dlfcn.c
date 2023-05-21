@@ -47,8 +47,20 @@ typedef ULONG ULONG_PTR;
 #endif
 
 #ifdef _MSC_VER
+#if _MSC_VER >= 1000
 /* https://docs.microsoft.com/en-us/cpp/intrinsics/returnaddress */
 #pragma intrinsic( _ReturnAddress )
+#else
+/* On older version read return address from the value on stack pointer + 4 of
+ * the caller. Caller stack pointer is stored in EBP register but only when
+ * the EBP register is not optimized out. Usage of _alloca() function prevent
+ * EBP register optimization. Read value of EBP + 4 via inline assembly. And
+ * because inline assembly does not have a return value, put it into naked
+ * function which does not have prologue and epilogue and preserve registers.
+ */
+__declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4] __asm ret }
+#define _ReturnAddress( ) ( _alloca(1), _ReturnAddress( ) )
+#endif
 #else
 /* https://gcc.gnu.org/onlinedocs/gcc/Return-Address.html */
 #ifndef _ReturnAddress
