@@ -252,7 +252,7 @@ static HMODULE MyGetModuleHandleFromAddress( const void *addr )
     HMODULE kernel32;
     HMODULE hModule;
     MEMORY_BASIC_INFORMATION info;
-    SIZE_T sLen;
+    size_t sLen;
 
     if( !failed && GetModuleHandleExAPtr == NULL )
     {
@@ -615,7 +615,7 @@ static BOOL get_image_section( HMODULE module, int index, void **ptr, DWORD *siz
     if( optionalHeader->Magic != IMAGE_NT_OPTIONAL_HDR_MAGIC )
         return FALSE;
 
-    if( index < 0 || index > IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR )
+    if( index < 0 || index >= IMAGE_NUMBEROF_DIRECTORY_ENTRIES )
         return FALSE;
 
     if( optionalHeader->DataDirectory[index].Size == 0 || optionalHeader->DataDirectory[index].VirtualAddress == 0 )
@@ -636,9 +636,9 @@ static const char *get_export_symbol_name( HMODULE module, IMAGE_EXPORT_DIRECTOR
     void *candidateAddr = NULL;
     int candidateIndex = -1;
     BYTE *base = (BYTE *) module;
-    DWORD *functionAddressesOffsets = (DWORD *) (base + ied->AddressOfFunctions);
-    DWORD *functionNamesOffsets = (DWORD *) (base + ied->AddressOfNames);
-    USHORT *functionNameOrdinalsIndexes = (USHORT *) (base + ied->AddressOfNameOrdinals);
+    DWORD *functionAddressesOffsets = (DWORD *) (base + (DWORD) ied->AddressOfFunctions);
+    DWORD *functionNamesOffsets = (DWORD *) (base + (DWORD) ied->AddressOfNames);
+    USHORT *functionNameOrdinalsIndexes = (USHORT *) (base + (DWORD) ied->AddressOfNameOrdinals);
 
     for( i = 0; i < ied->NumberOfFunctions; i++ )
     {
@@ -666,7 +666,7 @@ static const char *get_export_symbol_name( HMODULE module, IMAGE_EXPORT_DIRECTOR
 static BOOL is_valid_address( const void *addr )
 {
     MEMORY_BASIC_INFORMATION info;
-    SIZE_T result;
+    size_t result;
 
     if( addr == NULL )
         return FALSE;
@@ -852,7 +852,7 @@ int dladdr( const void *addr, Dl_info *info )
             if( iid == NULL || iid->Characteristics == 0 || iid->FirstThunk == 0 )
                 return 0;
 
-            iat = (void *)( (BYTE *) hModule + iid->FirstThunk );
+            iat = (void *)( (BYTE *) hModule + (DWORD) iid->FirstThunk );
             /* We assume that in this case iid and iat's are in linear order */
             iatSize = iidSize - (DWORD) ( (BYTE *) iat - (BYTE *) iid );
         }
