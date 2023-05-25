@@ -45,10 +45,35 @@ typedef ULONG ULONG_PTR;
 #ifndef GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT
 #define GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT 0x2
 #endif
+#ifndef IMAGE_NT_OPTIONAL_HDR_MAGIC
+#ifdef _WIN64
+#define IMAGE_NT_OPTIONAL_HDR_MAGIC 0x20b
+#else
+#define IMAGE_NT_OPTIONAL_HDR_MAGIC 0x10b
+#endif
+#endif
+#ifndef IMAGE_DIRECTORY_ENTRY_IAT
+#define IMAGE_DIRECTORY_ENTRY_IAT 12
+#endif
+#ifndef LOAD_WITH_ALTERED_SEARCH_PATH
+#define LOAD_WITH_ALTERED_SEARCH_PATH 0x8
+#endif
 
 #ifdef _MSC_VER
+#if _MSC_VER >= 1000
 /* https://docs.microsoft.com/en-us/cpp/intrinsics/returnaddress */
 #pragma intrinsic( _ReturnAddress )
+#else
+/* On older version read return address from the value on stack pointer + 4 of
+ * the caller. Caller stack pointer is stored in EBP register but only when
+ * the EBP register is not optimized out. Usage of _alloca() function prevent
+ * EBP register optimization. Read value of EBP + 4 via inline assembly. And
+ * because inline assembly does not have a return value, put it into naked
+ * function which does not have prologue and epilogue and preserve registers.
+ */
+__declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4] __asm ret }
+#define _ReturnAddress( ) ( _alloca(1), _ReturnAddress( ) )
+#endif
 #else
 /* https://gcc.gnu.org/onlinedocs/gcc/Return-Address.html */
 #ifndef _ReturnAddress
@@ -252,7 +277,7 @@ static HMODULE MyGetModuleHandleFromAddress( const void *addr )
     HMODULE kernel32;
     HMODULE hModule;
     MEMORY_BASIC_INFORMATION info;
-    SIZE_T sLen;
+    size_t sLen;
 
     if( !failed && GetModuleHandleExAPtr == NULL )
     {
@@ -615,7 +640,7 @@ static BOOL get_image_section( HMODULE module, int index, void **ptr, DWORD *siz
     if( optionalHeader->Magic != IMAGE_NT_OPTIONAL_HDR_MAGIC )
         return FALSE;
 
-    if( index < 0 || index > IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR )
+    if( index < 0 || index >= IMAGE_NUMBEROF_DIRECTORY_ENTRIES )
         return FALSE;
 
     if( optionalHeader->DataDirectory[index].Size == 0 || optionalHeader->DataDirectory[index].VirtualAddress == 0 )
@@ -636,9 +661,9 @@ static const char *get_export_symbol_name( HMODULE module, IMAGE_EXPORT_DIRECTOR
     void *candidateAddr = NULL;
     int candidateIndex = -1;
     BYTE *base = (BYTE *) module;
-    DWORD *functionAddressesOffsets = (DWORD *) (base + ied->AddressOfFunctions);
-    DWORD *functionNamesOffsets = (DWORD *) (base + ied->AddressOfNames);
-    USHORT *functionNameOrdinalsIndexes = (USHORT *) (base + ied->AddressOfNameOrdinals);
+    DWORD *functionAddressesOffsets = (DWORD *) (base + (DWORD) ied->AddressOfFunctions);
+    DWORD *functionNamesOffsets = (DWORD *) (base + (DWORD) ied->AddressOfNames);
+    USHORT *functionNameOrdinalsIndexes = (USHORT *) (base + (DWORD) ied->AddressOfNameOrdinals);
 
     for( i = 0; i < ied->NumberOfFunctions; i++ )
     {
@@ -666,7 +691,7 @@ static const char *get_export_symbol_name( HMODULE module, IMAGE_EXPORT_DIRECTOR
 static BOOL is_valid_address( const void *addr )
 {
     MEMORY_BASIC_INFORMATION info;
-    SIZE_T result;
+    size_t result;
 
     if( addr == NULL )
         return FALSE;
@@ -852,7 +877,7 @@ int dladdr( const void *addr, Dl_info *info )
             if( iid == NULL || iid->Characteristics == 0 || iid->FirstThunk == 0 )
                 return 0;
 
-            iat = (void *)( (BYTE *) hModule + iid->FirstThunk );
+            iat = (void *)( (BYTE *) hModule + (DWORD) iid->FirstThunk );
             /* We assume that in this case iid and iat's are in linear order */
             iatSize = iidSize - (DWORD) ( (BYTE *) iat - (BYTE *) iid );
         }
