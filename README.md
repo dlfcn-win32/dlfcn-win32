@@ -11,18 +11,18 @@ Windows without any modifications.
 
 It follows the standard as described here:
 
-http://www.opengroup.org/onlinepubs/009695399/basedefs/dlfcn.h.html
-http://www.opengroup.org/onlinepubs/009695399/functions/dlerror.html
-http://www.opengroup.org/onlinepubs/009695399/functions/dlsym.html
-http://www.opengroup.org/onlinepubs/009695399/functions/dlclose.html
-http://www.opengroup.org/onlinepubs/009695399/functions/dlopen.html
+* http://www.opengroup.org/onlinepubs/009695399/basedefs/dlfcn.h.html
+* http://www.opengroup.org/onlinepubs/009695399/functions/dlerror.html
+* http://www.opengroup.org/onlinepubs/009695399/functions/dlsym.html
+* http://www.opengroup.org/onlinepubs/009695399/functions/dlclose.html
+* http://www.opengroup.org/onlinepubs/009695399/functions/dlopen.html
 
 Using This Library
 ------------------
 
 ### Using CMake 
 Once the library has been installed, add to your project `CMakeLists.txt` : 
-~~~
+~~~cmake
 ...
 find_package(dlfcn-win32 REQUIRED)
 ...
@@ -32,7 +32,7 @@ target_link_libraries(<target> dlfcn-win32::dl)
 If you want to use this library in a cross-platform project, a convenient way 
 to proceed is to define the CMake variable [`CMAKE_DL_LIBS`](https://cmake.org/cmake/help/latest/variable/CMAKE_DL_LIBS.html)
 (that is normally empty on Windows) and then use it for linking: 
-~~~
+~~~cmake
 ...
 if (WIN32)
   find_package(dlfcn-win32 REQUIRED)
@@ -43,13 +43,21 @@ target_link_libraries(<target> ${CMAKE_DL_LIBS})
 ...
 ~~~
 
-When cross-compiling you might want to set CMAKE_CROSSCOMPILING_EMULATOR to the path of wine to run tests.
+When cross-compiling you might want to set [`CMAKE_CROSSCOMPILING_EMULATOR`](https://cmake.org/cmake/help/latest/variable/CMAKE_CROSSCOMPILING_EMULATOR.html) to the path of wine to run tests.
 
-Author
-------
+Authors
+-------
 
-Written by Ramiro Polla in 2007.
-Maintained by Tiancheng "Timothy" Gu from 2013.
+Contributors:
+* [Pali Rohar (`pali`)](https://github.com/pali)
+* [Timothy Gu (`TimothyGu`)](https://github.com/TimothyGu)
+* [Ramiro Polla (`ramiropolla`)](https://github.com/ramiropolla)
+* [Ralf Habacker (`rhabacker`)](https://github.com/rhabacker)
+* [`xantares`](https://github.com/xantares)
+
+
+Mantainer:
+* [Silvio Traversaro (`traversaro`)](https://github.com/traversaro)
 
 License
 -------
