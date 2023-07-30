@@ -54,7 +54,8 @@ Contributors:
 * [Ramiro Polla (`ramiropolla`)](https://github.com/ramiropolla)
 * [Ralf Habacker (`rhabacker`)](https://github.com/rhabacker)
 * [`xantares`](https://github.com/xantares)
-
+* [`driver1998`](https://github.com/driver1998)
+* [Angelo Haller (`szanni`)](https://github.com/szanni)
 
 Mantainer:
 * [Silvio Traversaro (`traversaro`)](https://github.com/traversaro)
