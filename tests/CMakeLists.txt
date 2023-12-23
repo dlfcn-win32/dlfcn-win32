@@ -7,19 +7,19 @@ if(WIN32)
 
     add_library(testdll2 SHARED testdll2.c)
     set_target_properties(testdll2 PROPERTIES PREFIX "")
-    target_link_libraries(testdll2 dl)
+    target_link_libraries(testdll2 dlfcn-win32::dl)
 
     add_library(testdll3 SHARED testdll3.c)
     set_target_properties(testdll3 PROPERTIES PREFIX "")
 
     add_executable(t_dlfcn test.c)
-    target_link_libraries(t_dlfcn dl)
+    target_link_libraries(t_dlfcn dlfcn-win32::dl)
 
     add_test(NAME t_dlfcn COMMAND t_dlfcn WORKING_DIRECTORY $<TARGET_FILE_DIR:t_dlfcn> )
 endif()
 
 add_executable(test-dladdr test-dladdr.c)
-target_link_libraries(test-dladdr dl)
+target_link_libraries(test-dladdr dlfcn-win32::dl)
 if(UNIX)
     set_target_properties(test-dladdr PROPERTIES COMPILE_FLAGS "-Wl,--export-dynamic -fpie")
 endif()
