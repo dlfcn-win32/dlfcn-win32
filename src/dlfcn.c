@@ -103,6 +103,8 @@ __declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4]
 #define EXIT_C_FORK(JMPBUF,STATUS) longjmp(JMPBUF,STATUS)
 #ifdef __GNUC__
 #define alloca __builtin_alloca
+#elif defined(_MSC)
+#define alloca _alloca
 #else
 #include <alloc.h>
 #endif
