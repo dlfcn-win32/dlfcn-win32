@@ -568,8 +568,13 @@ void *dlsym( void *handle, const char *name )
             jmp_buf fkmodules;
             /* Ensures the stack space allocated is released when we're done
              * since there's no freea() to use instead */
-            if ( EXEC_C_FORK( fkmodules ) != 0 )
-                goto end;
+#define FKMODULES_STATE_ALLOC_MEMORY -1
+#define FKMODULES_STATE_FOUND_SYMBOL 1
+            switch ( EXEC_C_FORK( fkmodules ) )
+            {
+			case FKMODULES_STATE_ALLOC_MEMORY: break;
+			default: goto end;
+			}
             /* Using alloca() allows callers to use dlsym( RTDL_NEXT, "malloc" ) */
             modules = alloca(dwSize);
             if( MyEnumProcessModules( hCurrentProc, modules, dwSize, &cbNeeded ) != 0 && dwSize == cbNeeded )
@@ -587,10 +592,10 @@ void *dlsym( void *handle, const char *name )
                         continue;
                     symbol = GetProcAddress( modules[i], name );
                     if( symbol != NULL )
-                        EXIT_C_FORK( fkmodules, 1 );
+                        EXIT_C_FORK( fkmodules, FKMODULES_STATE_FOUND_SYMBOL );
                 }
             }
-            EXIT_C_FORK( fkmodules, 1 );
+            EXIT_C_FORK( fkmodules, FKMODULES_STATE_ALLOC_MEMORY );
         }
     }
 
