@@ -587,10 +587,10 @@ void *dlsym( void *handle, const char *name )
                         continue;
                     symbol = GetProcAddress( modules[i], name );
                     if( symbol != NULL )
-                        EXIT_C_FORK( fkmodules );
+                        EXIT_C_FORK( fkmodules, 1 );
                 }
             }
-            EXIT_C_FORK( fkmodules );
+            EXIT_C_FORK( fkmodules, 1 );
         }
     }
 
