@@ -96,6 +96,9 @@ __declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4]
 #define DLFCN_NOINLINE
 #endif
 
+
+#include <alloc.h>
+
 /* Note:
  * MSDN says these functions are not thread-safe. We make no efforts to have
  * any kind of thread safety.
@@ -554,46 +557,39 @@ void *dlsym( void *handle, const char *name )
          */
         if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwSize ) != 0 )
         {
-            modules = malloc( dwSize );
-            if( modules )
-            {
-                if( MyEnumProcessModules( hCurrentProc, modules, dwSize, &cbNeeded ) != 0 && dwSize == cbNeeded )
-                {
-                    for( i = 0; i < dwSize / sizeof( HMODULE ); i++ )
-                    {
-                        if( handle == RTLD_NEXT && hCaller )
-                        {
-                            /* Next modules can be used for RTLD_NEXT */
-                            if( hCaller == modules[i] )
-                                hCaller = NULL;
-                            continue;
-                        }
-                        if( local_search( modules[i] ) )
-                            continue;
-                        symbol = GetProcAddress( modules[i], name );
-                        if( symbol != NULL )
-                        {
-                            free( modules );
-                            goto end;
-                        }
-                    }
-
-                }
-                free( modules );
-            }
-            else
-            {
-                dwMessageId = ERROR_NOT_ENOUGH_MEMORY;
+            jmp_buf fkmodules;
+            /* Ensures the stack space allocated is released when we're done
+             * since there's no freea() to use instead */
+            if ( EXEC_C_FORK( fkmodules ) != 0 )
                 goto end;
+            /* Using alloca() allows callers to use dlsym( RTDL_NEXT, "malloc" ) */
+            modules = alloca(dwSize);
+            if( MyEnumProcessModules( hCurrentProc, modules, dwSize, &cbNeeded ) != 0 && dwSize == cbNeeded )
+            {
+                for( i = 0; i < dwSize / sizeof( HMODULE ); i++ )
+                {
+                    if( handle == RTLD_NEXT && hCaller )
+                    {
+                        /* Next modules can be used for RTLD_NEXT */
+                        if( hCaller == modules[i] )
+                            hCaller = NULL;
+                        continue;
+                    }
+                    if( local_search( modules[i] ) )
+                        continue;
+                    symbol = GetProcAddress( modules[i], name );
+                    if( symbol != NULL )
+                        EXIT_C_FORK( fkmodules );
+                }
             }
+            EXIT_C_FORK( fkmodules );
         }
     }
 
 end:
     if( symbol == NULL )
     {
-        if( !dwMessageId )
-            dwMessageId = ERROR_PROC_NOT_FOUND;
+        dwMessageId = ERROR_PROC_NOT_FOUND;
         save_err_str( name, dwMessageId );
     }
 
@@ -726,17 +722,17 @@ static INT64 sign_extend(UINT64 value, UINT bits)
  *
  * On ARM64, an import thunk is also a relative jump pointing into the
  * import address table, implemented by the following three instructions:
- * 
+ *
  *      adrp x16, [page_offset]
- * Calculates the page address (aligned to 4KB) the IAT is at, based 
- * on the value of x16, with page_offset. 
+ * Calculates the page address (aligned to 4KB) the IAT is at, based
+ * on the value of x16, with page_offset.
  *
  *      ldr  x16, [x16, offset]
  * Calculates the final IAT address, x16 <- x16 + offset.
- * 
+ *
  *      br   x16
  * Jump to the address in x16.
- * 
+ *
  * The register used here is hardcoded to be x16.
  */
 static BOOL is_import_thunk( const void *addr )

@@ -25,8 +25,17 @@
 #define DLFCN_H
 
 #ifdef __cplusplus
+#include <csetjmp>
+#define EXEC_CXX_FORK(JMPBUF)        std::setjmp(JMPBUF)
+#define EXIT_CXX_FORK(JMPBUF,STATUS) std::longjmp(JMPBUF,STATUS)
 extern "C" {
+#else
+#include <setjmp.h>
 #endif
+
+/* Defined to make things less confusing when find the calls in code */
+#define EXEC_C_FORK(JMPBUF)        setjmp(JMPBUF)
+#define EXIT_C_FORK(JMPBUF,STATUS) longjmp(JMPBUF,STATUS)
 
 #if defined(DLFCN_WIN32_SHARED)
 #if defined(DLFCN_WIN32_EXPORTS)
