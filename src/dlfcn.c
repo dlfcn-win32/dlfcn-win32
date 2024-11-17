@@ -566,13 +566,26 @@ void *dlsym( void *handle, const char *name )
         if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwSize ) != 0 )
         {
             jmp_buf fkmodules;
+            NT_TIB *tib = (NT_TIB*)NtCurrentTeb();
+			DWORD stackBase = (DWORD)(tib->StackBase);
+			DWORD stackLimit = (DWORD)(tib->StackLimit);
+			/* Ensure any stack allocations made for fkmodules by setjmp have
+			 * a reasonbale chance of success while also ensuring we never go
+			 * beyond the thread's stack limit */
+			DWORD allocLimit = (stackLimit - stackBase) >> 1;
             /* Ensures the stack space allocated is released when we're done
              * since there's no freea() to use instead */
 #define FKMODULES_STATE_ALLOC_MEMORY -1
 #define FKMODULES_STATE_FOUND_SYMBOL 1
             switch ( EXEC_C_FORK( fkmodules ) )
             {
-			case FKMODULES_STATE_ALLOC_MEMORY: break;
+			case FKMODULES_STATE_ALLOC_MEMORY:
+				if ( dwSize > allocLimit )
+				{
+					dwMessageId = ERROR_NOT_ENOUGH_MEMORY;
+					goto end;
+				}
+				break;
 			default: goto end;
 			}
             /* Using alloca() allows callers to use dlsym( RTDL_NEXT, "malloc" ) */
@@ -595,6 +608,7 @@ void *dlsym( void *handle, const char *name )
                         EXIT_C_FORK( fkmodules, FKMODULES_STATE_FOUND_SYMBOL );
                 }
             }
+            dwSize = cbNeeded;
             EXIT_C_FORK( fkmodules, FKMODULES_STATE_ALLOC_MEMORY );
         }
     }
