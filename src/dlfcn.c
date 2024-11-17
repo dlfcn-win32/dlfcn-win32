@@ -97,7 +97,15 @@ __declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4]
 #endif
 
 
+#include <setjmp.h>
+/* Defined to make things less confusing when find the calls in code */
+#define EXEC_C_FORK(JMPBUF)        setjmp(JMPBUF)
+#define EXIT_C_FORK(JMPBUF,STATUS) longjmp(JMPBUF,STATUS)
+#ifdef __GNUC__
+#define alloca __builtin_alloca
+#else
 #include <alloc.h>
+#endif
 
 /* Note:
  * MSDN says these functions are not thread-safe. We make no efforts to have
