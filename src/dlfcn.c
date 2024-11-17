@@ -254,9 +254,10 @@ static void save_err_ptr_str( const void *ptr, DWORD dwMessageId )
     save_err_str( ptr_buf, dwMessageId );
 }
 
+typedef BOOL (WINAPI *SetThreadErrorModePtrCB)(DWORD, DWORD *);
 static UINT MySetErrorMode( UINT uMode )
 {
-    static BOOL (WINAPI *SetThreadErrorModePtr)(DWORD, DWORD *) = NULL;
+    static SetThreadErrorModePtrCB SetThreadErrorModePtr = NULL;
     static BOOL failed = FALSE;
     HMODULE kernel32;
     DWORD oldMode;
@@ -265,7 +266,7 @@ static UINT MySetErrorMode( UINT uMode )
     {
         kernel32 = GetModuleHandleA( "Kernel32.dll" );
         if( kernel32 != NULL )
-            SetThreadErrorModePtr = (BOOL (WINAPI *)(DWORD, DWORD *)) (LPVOID) GetProcAddress( kernel32, "SetThreadErrorMode" );
+            SetThreadErrorModePtr = (SetThreadErrorModePtrCB) (LPVOID) GetProcAddress( kernel32, "SetThreadErrorMode" );
         if( SetThreadErrorModePtr == NULL )
             failed = TRUE;
     }
@@ -283,9 +284,10 @@ static UINT MySetErrorMode( UINT uMode )
     }
 }
 
+typedef BOOL (WINAPI *GetModuleHandleExAPtrCB)(DWORD, LPCSTR, HMODULE *);
 static HMODULE MyGetModuleHandleFromAddress( const void *addr )
 {
-    static BOOL (WINAPI *GetModuleHandleExAPtr)(DWORD, LPCSTR, HMODULE *) = NULL;
+    static GetModuleHandleExAPtrCB GetModuleHandleExAPtr = NULL;
     static BOOL failed = FALSE;
     HMODULE kernel32;
     HMODULE hModule;
@@ -296,7 +298,7 @@ static HMODULE MyGetModuleHandleFromAddress( const void *addr )
     {
         kernel32 = GetModuleHandleA( "Kernel32.dll" );
         if( kernel32 != NULL )
-            GetModuleHandleExAPtr = (BOOL (WINAPI *)(DWORD, LPCSTR, HMODULE *)) (LPVOID) GetProcAddress( kernel32, "GetModuleHandleExA" );
+            GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB) (LPVOID) GetProcAddress( kernel32, "GetModuleHandleExA" );
         if( GetModuleHandleExAPtr == NULL )
             failed = TRUE;
     }
@@ -321,10 +323,11 @@ static HMODULE MyGetModuleHandleFromAddress( const void *addr )
     return hModule;
 }
 
+typedef BOOL (WINAPI *EnumProcessModulesPtrCB)(HANDLE, HMODULE *, DWORD, LPDWORD);
 /* Load Psapi.dll at runtime, this avoids linking caveat */
 static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded )
 {
-    static BOOL (WINAPI *EnumProcessModulesPtr)(HANDLE, HMODULE *, DWORD, LPDWORD) = NULL;
+    static EnumProcessModulesPtrCB EnumProcessModulesPtr = NULL;
     static BOOL failed = FALSE;
     UINT uMode;
     HMODULE psapi;
@@ -337,7 +340,7 @@ static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb,
         /* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
         psapi = GetModuleHandleA( "Kernel32.dll" );
         if( psapi != NULL )
-            EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) (LPVOID) GetProcAddress( psapi, "K32EnumProcessModules" );
+            EnumProcessModulesPtr = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( psapi, "K32EnumProcessModules" );
 
         /* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
         if( EnumProcessModulesPtr == NULL )
@@ -347,7 +350,7 @@ static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb,
             psapi = LoadLibraryA( "Psapi.dll" );
             if( psapi != NULL )
             {
-                EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) (LPVOID) GetProcAddress( psapi, "EnumProcessModules" );
+                EnumProcessModulesPtr = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( psapi, "EnumProcessModules" );
                 if( EnumProcessModulesPtr == NULL )
                     FreeLibrary( psapi );
             }
