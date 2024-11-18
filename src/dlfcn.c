@@ -433,10 +433,10 @@ void *dlsym( void *handle, const char *name )
     error_occurred = FALSE;
 
 	/* The symbol lookup happens in the normal global scope; that is,
-	 * a search for a symbol using this handle would find the same
-	 * definition as a direct use of this symbol in the program code.
-	 * So use same lookup procedure as when filename is NULL.
-	 */
+    * a search for a symbol using this handle would find the same
+    * definition as a direct use of this symbol in the program code.
+    * So use same lookup procedure as when filename is NULL.
+    */
     if ( handle == RTLD_DEFAULT )
         handle = hModule;
     else if ( handle == RTLD_NEXT )
@@ -457,7 +457,7 @@ void *dlsym( void *handle, const char *name )
         }
     }
 
-    if( handle != RTLD_NEXT )
+    if ( handle != RTLD_NEXT )
     {
         symbol = GetProcAddress( (HMODULE) handle, name );
 
@@ -469,7 +469,7 @@ void *dlsym( void *handle, const char *name )
      * in all globally loaded objects.
      */
 
-    else if( hModule == handle )
+    if ( hModule == handle || handle == RTLD_NEXT )
     {
         HANDLE hCurrentProc = GetCurrentProcess( ), hHeap = NULL;
         DWORD cbNeeded = 0, cbHeapSize = 0, i = 0;
@@ -479,7 +479,7 @@ void *dlsym( void *handle, const char *name )
         /* Realistically speaking we should never need more than this, the
          * test builds will tell us if this assumption is correct */
         GetSystemInfo( &sysinf );
-        cbHeapSize = sysinf.dwPageSize * 4;
+        cbHeapSize = sysinf.dwPageSize * 2;
         retry:
         hHeap = HeapCreate( HEAP_NO_SERIALIZE, cbHeapSize, cbHeapSize );
         if ( !hHeap )
@@ -504,6 +504,7 @@ void *dlsym( void *handle, const char *name )
          * we didn't need more than the heap size */
         if ( cbNeeded >= cbHeapSize )
         {
+             cbHeapSize *= 2;
              HeapDestroy( hHeap );
              modules = NULL;
              hHeap = NULL;
@@ -525,7 +526,7 @@ void *dlsym( void *handle, const char *name )
             if( local_search( modules[i] ) )
                 continue;
             symbol = GetProcAddress( modules[i], name );
-            if( symbol != NULL )
+            if( symbol )
                 break;
         }
 
