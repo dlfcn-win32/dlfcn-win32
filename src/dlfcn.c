@@ -260,7 +260,7 @@ BOOL WINAPI *HackyGetModuleHandleExA
      * The HMODULE of a DLL is the same value as the module's base address.
      */
     MEMORY_BASIC_INFORMATION info;
-    size_t sLen = VirtualQuery( addr, &info, sizeof( info ) );
+    size_t sLen = VirtualQuery( lpModuleName, &info, sizeof( info ) );
     if( sLen != sizeof( info ) )
     {
         *phModule = NULL;
