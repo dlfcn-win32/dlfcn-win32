@@ -500,23 +500,23 @@ void *dlsym( void *handle, const char *name )
 			goto end;
 		}
 
-        while ( vars->cbHeapSize < cbNeeded )
+        while ( vars.cbHeapSize < cbNeeded )
         {
-			vars->hHeap = HeapCreate( HEAP_NO_SERIALIZE, cbNeeded, cbNeeded );
+			vars.hHeap = HeapCreate( HEAP_NO_SERIALIZE, cbNeeded, cbNeeded );
 			if ( !hHeap )
 			{
 				dwMessageId = GetLastError();
 				goto end;
 			}
 
-			vars->cbHeapSize = cbNeeded;
+			vars.cbHeapSize = cbNeeded;
 			/* Using HeapAlloc() allows callers to use dlsym( RTLD_NEXT, "malloc" ) */
-			vars->hModules = HeapAlloc( vars->hHeap, HEAP_NO_SERIALIZE | HEAP_ZERO_MEMORY, cbNeeded );
+			vars.hModules = HeapAlloc( vars.hHeap, HEAP_NO_SERIALIZE | HEAP_ZERO_MEMORY, cbNeeded );
 			SetLastError(0);
 			/* GetModuleHandle( NULL ) only returns the current program file. So
 			 * if we want to get ALL loaded module including those in linked DLLs,
 			 * we have to use EnumProcessModules( ). */
-			if ( MyEnumProcessModules( hThisProc, vars->hModules, cbNeeded, &cbNeeded ) == FALSE )
+			if ( MyEnumProcessModules( hThisProc, vars.hModules, cbNeeded, &cbNeeded ) == FALSE )
 			{
 				dwMessageId = GetLastError();
 				goto freeHeap;
@@ -524,7 +524,7 @@ void *dlsym( void *handle, const char *name )
 
 			/* No big deal if what we got was less than the heap size so long as
 			 * we didn't need more than the heap size */
-			if ( cbNeeded <= vars->cbHeapSize )
+			if ( cbNeeded <= vars.cbHeapSize )
 				break;
 			 dlsym_clear_heap( &vars );
 		}
@@ -534,7 +534,7 @@ void *dlsym( void *handle, const char *name )
          * functions would lie. */
         for( i = 0, count = cbNeeded / sizeof( HMODULE ); i < count; ++i )
         {
-			hIter = vars->hModules[i];
+			hIter = vars.hModules[i];
             if( hCaller )
             {
                 /* Next modules can be used for RTLD_NEXT, this loop cannot be
