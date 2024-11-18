@@ -253,7 +253,7 @@ static UINT MySetErrorMode( UINT uMode )
 
 typedef BOOL (WINAPI *GetModuleHandleExAPtrCB)(DWORD, LPCSTR, HMODULE *);
 static GetModuleHandleExAPtrCB GetModuleHandleExAPtr = NULL;
-BOOL WINAPI *HackyGetModuleHandleExA
+BOOL WINAPI HackyGetModuleHandleExA
     ( DWORD dwFlags, LPCSTR lpModuleName, HMODULE *phModule )
 {
     /* To get HMODULE from address use undocumented hack from https://stackoverflow.com/a/2396380
@@ -280,7 +280,7 @@ static HMODULE MyGetModuleHandleFromAddress( const void *addr )
 
 /* Load Psapi.dll at runtime, this avoids linking caveat */
 typedef BOOL (WINAPI *EnumProcessModulesPtrCB)(HANDLE, HMODULE *, DWORD, LPDWORD);
-BOOL FailEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded )
+BOOL WINAPI FailEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded )
 {
     (void)hProcess;
     (void)lphModule;
@@ -869,7 +869,7 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvTerminated )
             if( psapi != NULL )
             {
                 MyEnumProcessModules = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( psapi, "EnumProcessModules" );
-                if( EnumProcessModules == NULL )
+                if( MyEnumProcessModules == NULL )
                 {
                     MyEnumProcessModules = FailEnumProcessModules;
                     FreeLibrary( psapi );
