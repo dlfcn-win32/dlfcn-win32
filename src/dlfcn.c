@@ -479,7 +479,8 @@ void *dlsym( void *handle, const char *name )
         /* Realistically speaking we should never need more than this, the
          * test builds will tell us if this assumption is correct */
         GetSystemInfo( &sysinf );
-        cbHeapSize = sysinf.dwPageSize * 2;
+        cbHeapSize = sysinf.dwPageSize * 4;
+        retry:
         hHeap = HeapCreate( HEAP_NO_SERIALIZE, cbHeapSize, cbHeapSize );
         if ( !hHeap )
         {
@@ -493,7 +494,6 @@ void *dlsym( void *handle, const char *name )
         /* GetModuleHandle( NULL ) only returns the current program file. So
          * if we want to get ALL loaded module including those in linked DLLs,
          * we have to use EnumProcessModules( ). */
-        retry:
         if ( MyEnumProcessModules( hCurrentProc, modules, cbHeapSize, &cbNeeded ) == 0 )
         {
             dwMessageId = GetLastError();
@@ -504,8 +504,10 @@ void *dlsym( void *handle, const char *name )
          * we didn't need more than the heap size */
         if ( cbNeeded >= cbHeapSize )
         {
-            dwMessageId = ERROR_NOT_ENOUGH_MEMORY;
-            goto freeHeap;
+             HeapDestroy( hHeap );
+             modules = NULL;
+             hHeap = NULL;
+             goto retry;
         }
 
         /* Search array in reverse since the array is likely only ever
