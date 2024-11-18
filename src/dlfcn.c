@@ -432,17 +432,15 @@ void *dlsym( void *handle, const char *name )
 
     error_occurred = FALSE;
 
-    switch  ( handle )
-    {
-    case RTLD_DEFAULT:
-        /* The symbol lookup happens in the normal global scope; that is,
-         * a search for a symbol using this handle would find the same
-         * definition as a direct use of this symbol in the program code.
-         * So use same lookup procedure as when filename is NULL.
-         */
+	/* The symbol lookup happens in the normal global scope; that is,
+	 * a search for a symbol using this handle would find the same
+	 * definition as a direct use of this symbol in the program code.
+	 * So use same lookup procedure as when filename is NULL.
+	 */
+    if ( handle == RTLD_DEFAULT )
         handle = hModule;
-        break;
-    case RTLD_NEXT:
+    else if ( handle == RTLD_NEXT )
+    {
         /* Specifies the next object after this one that defines name.
          * This one refers to the object containing the invocation of dlsym().
          * The next object is the one found upon the application of a load
