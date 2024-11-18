@@ -431,7 +431,7 @@ typedef struct
 
 void dlsym_clear_heap( dlsym_vars *vars )
 {
-	HeapFree( vars->hHeap, vars->hModules );
+	HeapFree( vars->hHeap, HEAP_NO_SERIALIZE, vars->hModules );
 	HeapDestroy( vars->hHeap );
 	vars->hModules = NULL;
 	vars->hHeap = NULL;
