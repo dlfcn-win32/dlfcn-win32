@@ -286,7 +286,7 @@ BOOL WINAPI FailEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD c
     (void)lphModule;
     (void)cb;
     (void)lpcbNeeded;
-    SetLastError(ERROR_NOINTERFACE);
+    SetLastError(E_NOINTERFACE);
     return FALSE;
 }
 static EnumProcessModulesPtrCB MyEnumProcessModules = NULL;
