@@ -286,6 +286,7 @@ BOOL WINAPI FailEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD c
     (void)lphModule;
     (void)cb;
     (void)lpcbNeeded;
+    SetLastError(ERROR_NOINTERFACE);
     return FALSE;
 }
 static EnumProcessModulesPtrCB MyEnumProcessModules = NULL;
@@ -496,7 +497,11 @@ void *dlsym( void *handle, const char *name )
 
     while ( vars.cbHeapSize < cbNeeded )
     {
-        vars.hHeap = HeapCreate( HEAP_NO_SERIALIZE, cbNeeded, cbNeeded );
+		/* We have to allocate more than we need because the spec says
+		 * HeapAlloc cannot allocate the full heap to an allocation as it
+		 * needs some of the memory for internal data, HeapCreate should've
+		 * accounted for this with a prefix allocation but oh well.  */
+        vars.hHeap = HeapCreate( HEAP_NO_SERIALIZE, cbNeeded, cbNeeded * 2 );
         if ( !hHeap )
         {
             dwMessageId = GetLastError();
@@ -548,15 +553,14 @@ void *dlsym( void *handle, const char *name )
             break;
     }
 
-    freeHeap:
-    dlsym_clear_heap( &vars );
+    if ( !symbol )
+		dwMessageId = ERROR_PROC_NOT_FOUND;
 
+freeHeap:
+    dlsym_clear_heap( &vars );
 end:
     if( dwMessageId )
-    {
-        dwMessageId = ERROR_PROC_NOT_FOUND;
         save_err_str( name, dwMessageId );
-    }
 
     return *(void **) (&symbol);
 }
