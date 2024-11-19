@@ -424,38 +424,39 @@ int dlclose( void *handle )
 /* Named as such in case ever need to bring it to initial scope of dlsym */
 typedef struct
 {
-	DWORD    cbHeapSize;
-	HMODULE *hModules;
-	HANDLE   hHeap;
+    DWORD    cbHeapSize;
+    HMODULE *hModules;
+    HANDLE   hHeap;
 } dlsym_vars;
 
 void dlsym_clear_heap( dlsym_vars *vars )
 {
-	HeapFree( vars->hHeap, HEAP_NO_SERIALIZE, vars->hModules );
-	HeapDestroy( vars->hHeap );
-	vars->hModules = NULL;
-	vars->hHeap = NULL;
+	if ( vars->hModules )
+		HeapFree( vars->hHeap, HEAP_NO_SERIALIZE, vars->hModules );
+    HeapDestroy( vars->hHeap );
+    vars->hModules = NULL;
+    vars->hHeap = NULL;
 }
 
 DLFCN_NOINLINE /* Needed for _ReturnAddress() */
 DLFCN_EXPORT
 void *dlsym( void *handle, const char *name )
 {
-    DWORD dwMessageId = 0;
+    dlsym_vars vars = {0};
     FARPROC symbol = NULL;
-    HMODULE hCaller = NULL;
-    HMODULE hModule = GetModuleHandle( NULL );
+    HANDLE hThisProc = GetCurrentProcess( ), hHeap = NULL;
+    DWORD dwMessageId = 0, cbNeeded = 0, i = 0, count = 0;
+    HMODULE hCaller = NULL, hModule = GetModuleHandle( NULL ), hIter = NULL;
 
     error_occurred = FALSE;
+    SetLastError(0);
 
-	/* The symbol lookup happens in the normal global scope; that is,
+    /* The symbol lookup happens in the normal global scope; that is,
     * a search for a symbol using this handle would find the same
     * definition as a direct use of this symbol in the program code.
     * So use same lookup procedure as when filename is NULL.
     */
-    if ( handle == RTLD_DEFAULT )
-        handle = hModule;
-    else if ( handle == RTLD_NEXT )
+    if ( handle == RTLD_NEXT )
     {
         /* Specifies the next object after this one that defines name.
          * This one refers to the object containing the invocation of dlsym().
@@ -472,88 +473,83 @@ void *dlsym( void *handle, const char *name )
             goto end;
         }
     }
-
-    if ( handle != RTLD_NEXT )
+    else
     {
+        if ( handle == RTLD_DEFAULT )
+            handle = hModule;
+
         symbol = GetProcAddress( (HMODULE) handle, name );
 
         if( symbol != NULL )
             goto end;
     }
 
-    /* If the handle for the original program file is passed, also search
-     * in all globally loaded objects.
-     */
+    /* Just search always */
 
-    if ( hModule == handle || handle == RTLD_NEXT )
+    /* If gonna make a call either way then might as well use this instead
+     * of GetSystemInfo() for the pagesize */
+    if ( MyEnumProcessModules( hThisProc, NULL, 0, &cbNeeded ) == FALSE )
     {
-        HANDLE hThisProc = GetCurrentProcess( ), hHeap = NULL;
-        DWORD cbNeeded = 0, cbHeapSize = 0, i = 0, count = 0;
-        HMODULE *modules = NULL, hIter = NULL;
-        dlsym_vars vars = {0};
+        dwMessageId = GetLastError();
+        goto end;
+    }
 
-		/* If gonna make a call either way then might as well use this instead
-		 * of GetSystemInfo() for the pagesize */
-        if ( MyEnumProcessModules( hThisProc, NULL, 0, &cbNeeded ) == FALSE )
-		{
-			dwMessageId = GetLastError();
-			goto end;
-		}
-
-        while ( vars.cbHeapSize < cbNeeded )
+    while ( vars.cbHeapSize < cbNeeded )
+    {
+        vars.hHeap = HeapCreate( HEAP_NO_SERIALIZE, cbNeeded, cbNeeded );
+        if ( !hHeap )
         {
-			vars.hHeap = HeapCreate( HEAP_NO_SERIALIZE, cbNeeded, cbNeeded );
-			if ( !hHeap )
-			{
-				dwMessageId = GetLastError();
-				goto end;
-			}
-
-			vars.cbHeapSize = cbNeeded;
-			/* Using HeapAlloc() allows callers to use dlsym( RTLD_NEXT, "malloc" ) */
-			vars.hModules = HeapAlloc( vars.hHeap, HEAP_NO_SERIALIZE | HEAP_ZERO_MEMORY, cbNeeded );
-			SetLastError(0);
-			/* GetModuleHandle( NULL ) only returns the current program file. So
-			 * if we want to get ALL loaded module including those in linked DLLs,
-			 * we have to use EnumProcessModules( ). */
-			if ( MyEnumProcessModules( hThisProc, vars.hModules, cbNeeded, &cbNeeded ) == FALSE )
-			{
-				dwMessageId = GetLastError();
-				goto freeHeap;
-			}
-
-			/* No big deal if what we got was less than the heap size so long as
-			 * we didn't need more than the heap size */
-			if ( cbNeeded <= vars.cbHeapSize )
-				break;
-			 dlsym_clear_heap( &vars );
-		}
-
-        /* Realised my mistake here, we were indeed supposed to search from
-         * bottom of the array since that's where the top level wrappers of
-         * functions would lie. */
-        for( i = 0, count = cbNeeded / sizeof( HMODULE ); i < count; ++i )
-        {
-			hIter = vars.hModules[i];
-            if( hCaller )
-            {
-                /* Next modules can be used for RTLD_NEXT, this loop cannot be
-                 * reached without setting hCaller in this context anyways so
-                 * we just skip checking if handle == RTLD_NEXT */
-                if( hCaller == hIter )
-                    hCaller = NULL;
-                continue;
-            }
-            if( local_search( hIter ) )
-                continue;
-            symbol = GetProcAddress( hIter, name );
-            if( symbol )
-                break;
+            dwMessageId = GetLastError();
+            goto end;
         }
 
-        freeHeap:
-        dlsym_clear_heap( &vars );
+        vars.cbHeapSize = cbNeeded;
+        /* Using HeapAlloc() allows callers to use dlsym( RTLD_NEXT, "malloc" ) */
+        vars.hModules = HeapAlloc( vars.hHeap, HEAP_NO_SERIALIZE | HEAP_ZERO_MEMORY, cbNeeded );
+        if ( !(vars.hModules) )
+        {
+            dwMessageId = GetLastError();
+            goto freeHeap;
+        }
+        /* GetModuleHandle( NULL ) only returns the current program file. So
+         * if we want to get ALL loaded module including those in linked DLLs,
+         * we have to use EnumProcessModules( ). */
+        if ( MyEnumProcessModules( hThisProc, vars.hModules, cbNeeded, &cbNeeded ) == FALSE )
+        {
+            dwMessageId = GetLastError();
+            goto freeHeap;
+        }
+
+        /* No big deal if what we got was less than the heap size so long as
+         * we didn't need more than the heap size */
+        if ( cbNeeded > vars.cbHeapSize )
+            dlsym_clear_heap( &vars );
     }
+
+    /* Realised my mistake here, we were indeed supposed to search from
+     * bottom of the array since that's where the top level wrappers of
+     * functions would lie. */
+    for( i = 0, count = cbNeeded / sizeof( HMODULE ); i < count; ++i )
+    {
+        hIter = vars.hModules[i];
+        if( hCaller )
+        {
+            /* Next modules can be used for RTLD_NEXT, this loop cannot be
+             * reached without setting hCaller in this context anyways so
+             * we just skip checking if handle == RTLD_NEXT */
+            if( hCaller == hIter )
+                hCaller = NULL;
+            continue;
+        }
+        if( local_search( hIter ) )
+            continue;
+        symbol = GetProcAddress( hIter, name );
+        if( symbol )
+            break;
+    }
+
+    freeHeap:
+    dlsym_clear_heap( &vars );
 
 end:
     if( dwMessageId )
