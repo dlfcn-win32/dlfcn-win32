@@ -204,7 +204,11 @@ int main()
         RETURN_ERROR;
     }
     else
+    {
+        char *error_without_name = strchr( error, ':' );
+        error = error_without_name ? ( error_without_name + 2 ) : error;
         printf( "SUCCESS\tCould not open file with too long file name: %s\n", error );
+    }
 
     uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
     library3 = LoadLibraryA( toolongfile );
