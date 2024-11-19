@@ -492,6 +492,7 @@ void *dlsym( void *handle, const char *name )
     if ( MyEnumProcessModules( hThisProc, NULL, 0, &cbNeeded ) == FALSE )
     {
         dwMessageId = GetLastError();
+        if ( !dwMessageId ) dwMessageId = ERROR_FUNCTION_FAILED;
         goto end;
     }
 
@@ -505,6 +506,7 @@ void *dlsym( void *handle, const char *name )
         if ( !hHeap )
         {
             dwMessageId = GetLastError();
+            if ( !dwMessageId ) dwMessageId = ERROR_NOT_ENOUGH_MEMORY;
             goto end;
         }
 
@@ -514,6 +516,7 @@ void *dlsym( void *handle, const char *name )
         if ( !(vars.hModules) )
         {
             dwMessageId = GetLastError();
+            if ( !dwMessageId ) dwMessageId = ERROR_INVALID_TABLE;
             goto freeHeap;
         }
         /* GetModuleHandle( NULL ) only returns the current program file. So
@@ -522,6 +525,7 @@ void *dlsym( void *handle, const char *name )
         if ( MyEnumProcessModules( hThisProc, vars.hModules, cbNeeded, &cbNeeded ) == FALSE )
         {
             dwMessageId = GetLastError();
+            if ( !dwMessageId ) dwMessageId = ERROR_CALLBACK_SUPPLIED_INVALID_DATA;
             goto freeHeap;
         }
 
