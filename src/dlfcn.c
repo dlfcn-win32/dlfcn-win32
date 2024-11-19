@@ -889,7 +889,7 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvTerminated )
         {
             SetThreadErrorModePtr = (SetThreadErrorModePtrCB) (LPVOID) GetProcAddress( kernel32, "SetThreadErrorMode" );
             /* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
-            MyEnumProcessModules  = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( psapi, "K32EnumProcessModules" );
+            MyEnumProcessModules  = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( kernel32, "K32EnumProcessModules" );
             GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB) (LPVOID) GetProcAddress( kernel32, "GetModuleHandleExA" );
 
             if ( !SetThreadErrorModePtr )
