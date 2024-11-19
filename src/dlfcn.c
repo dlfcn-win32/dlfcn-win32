@@ -891,13 +891,13 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvTerminated )
             GetModuleHandleExAPtr = HackyGetModuleHandleExA;
 
         /* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
-        if( MyEnumProcessModules == NULL )
+        if( !kernel32 || !MyEnumProcessModules )
         {
             psapi = LoadLibraryA( "Psapi.dll" );
             if( psapi != NULL )
             {
                 MyEnumProcessModules = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( psapi, "EnumProcessModules" );
-                if( MyEnumProcessModules == NULL )
+                if( !MyEnumProcessModules )
                 {
                     MyEnumProcessModules = FailEnumProcessModules;
                     FreeLibrary( psapi );
