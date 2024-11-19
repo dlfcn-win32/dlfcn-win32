@@ -242,17 +242,21 @@ static void save_err_ptr_str( const void *ptr, DWORD dwMessageId )
 }
 
 typedef BOOL (WINAPI *SetThreadErrorModePtrCB)(DWORD, DWORD *);
-static SetThreadErrorModePtrCB SetThreadErrorModePtr = NULL;
+BOOL WINAPI MySetThreadErrorMode(DWORD uMode, DWORD *oldMode )
+{
+	UINT mode = SetErrorMode( uMode );
+	if ( oldMode )
+		*oldMode = mode;
+	return TRUE;
+}
+static SetThreadErrorModePtrCB SetThreadErrorModePtr = MySetThreadErrorMode;
 static UINT MySetErrorMode( UINT uMode )
 {
     DWORD oldMode = 0;
-    if( !SetThreadErrorModePtr )
-        return SetErrorMode( uMode );
-    return (SetThreadErrorModePtr( uMode, &oldMode ) == 0) ? 0 : oldMode;
+    return (SetThreadErrorModePtr( uMode, &oldMode ) == FALSE) ? 0 : oldMode;
 }
 
 typedef BOOL (WINAPI *GetModuleHandleExAPtrCB)(DWORD, LPCSTR, HMODULE *);
-static GetModuleHandleExAPtrCB GetModuleHandleExAPtr = NULL;
 BOOL WINAPI HackyGetModuleHandleExA
     ( DWORD dwFlags, LPCSTR lpModuleName, HMODULE *phModule )
 {
@@ -269,6 +273,7 @@ BOOL WINAPI HackyGetModuleHandleExA
     *phModule = (HMODULE) info.AllocationBase;
     return TRUE;
 }
+static GetModuleHandleExAPtrCB GetModuleHandleExAPtr = HackyGetModuleHandleExA;
 static HMODULE MyGetModuleHandleFromAddress( const void *addr )
 {
     HMODULE hModule = NULL;
@@ -289,7 +294,7 @@ BOOL WINAPI FailEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD c
     SetLastError(E_NOINTERFACE);
     return FALSE;
 }
-static EnumProcessModulesPtrCB MyEnumProcessModules = NULL;
+static EnumProcessModulesPtrCB MyEnumProcessModules = FailEnumProcessModules;
 
 DLFCN_EXPORT
 void *dlopen( const char *file, int mode )
@@ -668,7 +673,7 @@ static BOOL is_valid_address( const void *addr )
     /* check valid pointer */
     result = VirtualQuery( addr, &info, sizeof( info ) );
 
-    if( result == 0 || info.AllocationBase == NULL || info.AllocationProtect == 0 || info.AllocationProtect == PAGE_NOACCESS )
+    if( !result || !(info.AllocationBase) || !(info.AllocationProtect) || info.AllocationProtect == PAGE_NOACCESS )
         return FALSE;
 
     return TRUE;
@@ -878,23 +883,29 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvTerminated )
     case DLL_PROCESS_ATTACH:
         /* Do not let Windows display the critical-error-handler message box */
         uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
+
         kernel32 = GetModuleHandleA( "Kernel32.dll" );
         if( kernel32 )
         {
             SetThreadErrorModePtr = (SetThreadErrorModePtrCB) (LPVOID) GetProcAddress( kernel32, "SetThreadErrorMode" );
             /* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
-            MyEnumProcessModules = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( psapi, "K32EnumProcessModules" );
+            MyEnumProcessModules  = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( psapi, "K32EnumProcessModules" );
             GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB) (LPVOID) GetProcAddress( kernel32, "GetModuleHandleExA" );
-        }
 
-        if ( !GetModuleHandleExAPtr )
-            GetModuleHandleExAPtr = HackyGetModuleHandleExA;
+            if ( !SetThreadErrorModePtr )
+				SetThreadErrorModePtr = MySetThreadErrorMode;
+
+            if ( !GetModuleHandleExAPtr )
+				GetModuleHandleExAPtr = HackyGetModuleHandleExA;
+        }
 
         /* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
         if( !kernel32 || !MyEnumProcessModules )
         {
             psapi = LoadLibraryA( "Psapi.dll" );
-            if( psapi != NULL )
+            if ( !psapi )
+				MyEnumProcessModules = FailEnumProcessModules;
+            else
             {
                 MyEnumProcessModules = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( psapi, "EnumProcessModules" );
                 if( !MyEnumProcessModules )
@@ -909,9 +920,9 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvTerminated )
         MySetErrorMode( uMode );
         break;
     case DLL_PROCESS_DETACH:
+		MyEnumProcessModules = FailEnumProcessModules;
         if ( psapi )
         {
-            MyEnumProcessModules = FailEnumProcessModules;
             FreeLibrary( psapi );
             psapi = NULL;
         }
