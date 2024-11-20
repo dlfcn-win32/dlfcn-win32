@@ -254,10 +254,19 @@ static UINT MySetErrorMode( UINT uMode )
     DWORD oldMode = 0;
     return (SetThreadErrorModePtr( uMode, &oldMode ) == FALSE) ? 0 : oldMode;
 }
-#include <processthreadsapi.h>
+
+typedef DWORD (WINAPI *GetProcessIdCB)( HANDLE hProcess );
+DWORD FailGetProcessId( HANDLE hProcess )
+{
+	(void)hProcess;
+	SetLastError( E_NOINTERFACE );
+	return 0;
+}
+static GetProcessIdCB MyGetProcessId = NULL;
+
 #include <tlhelp32.h>
-typedef HANDLE (*CreateToolhelp32SnapshotCB)( DWORD dwFlags, DWORD dwPid );
-HANDLE FailCreateToolhelp32Snapshot( DWORD dwFlags, DWORD dwPid )
+typedef HANDLE (WINAPI *CreateToolhelp32SnapshotCB)( DWORD dwFlags, DWORD dwPid );
+HANDLE WINAPI FailCreateToolhelp32Snapshot( DWORD dwFlags, DWORD dwPid )
 {
 	(void)dwFlags;
 	(void)dwPid;
@@ -940,6 +949,7 @@ static void libinit( void )
     {
         SetThreadErrorModePtr = (SetThreadErrorModePtrCB)GetProcAddress( kernel32, "SetThreadErrorMode" );
         GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB)GetProcAddress( kernel32, "GetModuleHandleExA" );
+        MyGetProcessId = (GetProcessIdCB)GetProcAddress( "K32GetProcessId");
         MyCreateToolhelp32Snapshot = (CreateToolhelp32SnapshotCB)GetProcAddress( kernel32, "K32CreateToolHelp32SnapShot" );
         MyModule32First = (Module32NextCB)GetProcAddress(kernel32, "K32Module32First" );
         MyModule32Next = (Module32NextCB)GetProcAddress(kernel32, "K32Module32Next" );
@@ -950,6 +960,9 @@ static void libinit( void )
         if ( !GetModuleHandleExAPtr )
             GetModuleHandleExAPtr = HackyGetModuleHandleExA;
 
+        if ( !MyGetProcessId )
+            MyGetProcessId = (GetProcessIdCB)GetProcAddress( "GetProcessId");
+
         if ( !MyCreateToolhelp32Snapshot )
             MyCreateToolhelp32Snapshot = (CreateToolhelp32SnapshotCB)GetProcAddress( kernel32, "CreateToolHelp32SnapShot" );
 
@@ -958,6 +971,9 @@ static void libinit( void )
 
         if ( !MyModule32Next )
             MyModule32Next = (Module32NextCB)GetProcAddress(kernel32, "Module32Next" );
+
+        if ( !MyGetProcessId )
+            MyGetProcessId = FailGetProcessId;
 
         if ( !MyCreateToolhelp32Snapshot )
             MyCreateToolhelp32Snapshot = FailCreateToolhelp32Snapshot;
