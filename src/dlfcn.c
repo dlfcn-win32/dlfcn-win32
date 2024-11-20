@@ -307,9 +307,6 @@ static HMODULE MyGetModuleHandleFromAddress( const void *addr )
 typedef BOOL (WINAPI *EnumProcessModulesPtrCB)(HANDLE, HMODULE *, DWORD, LPDWORD);
 BOOL WINAPI FailEnumProcessModules( HANDLE hProcess, HMODULE *hModules, DWORD cb, LPDWORD lpcbNeeded )
 {
-    (void)lphModule;
-    (void)cb;
-    (void)lpcbNeeded;
     DWORD i = 0, count = cb / sizeof(HMODULE);
     MODULEENTRY32 me = {0};
     HANDLE hShot = MyCreateToolhelp32Snapshot( TH32CS_SNAPMODULE, GetProcessId( hProcess ) );
