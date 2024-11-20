@@ -326,7 +326,7 @@ BOOL WINAPI FailEnumProcessModules( HANDLE hProcess, HMODULE *hModules, DWORD cb
 		++i;
 	}
 	CloseHandle( hShot );
-	if ( lpcbNeeded ) lpcbNeeded = i;
+	if ( lpcbNeeded ) *lpcbNeeded = (i * sizeof(HMODULE));
 	return (i < count);
 }
 static EnumProcessModulesPtrCB MyEnumProcessModules = FailEnumProcessModules;
