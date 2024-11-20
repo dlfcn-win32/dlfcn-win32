@@ -474,7 +474,7 @@ typedef struct
     HANDLE   hHeap;
 } dlsym_vars;
 
-#define TEST_WITH_MALLOC 0
+#define TEST_WITH_MALLOC 1
 
 static void dlsym_clear_heap( dlsym_vars *vars )
 {
