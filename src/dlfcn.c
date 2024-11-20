@@ -877,13 +877,18 @@ static void libterm( void )
 		FreeLibrary( hPsapi );
 		hPsapi = NULL;
 	}
+	libinitcalled = FALSE;
 }
 static void libinit( void )
 {
     HMODULE kernel32 = NULL;
+	UINT uMode = 0;
+
+	if ( libinitcalled )
+		return;
+
 	/* Do not let Windows display the critical-error-handler message box */
-	UINT uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
-	libinitcalled = FALSE;
+	uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
 
 	kernel32 = GetModuleHandleA( "Kernel32.dll" );
 	if( kernel32 )
@@ -916,6 +921,7 @@ static void libinit( void )
 	}
 
 	MySetErrorMode( uMode );
+	libinitcalled = TRUE;
 }
 
 #ifdef __GNUC__
@@ -938,8 +944,9 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvTerminated )
 
 	/* Just a fallback for MSVC, not sure the atexit() will work out ther after
 	 * all */
-    if ( fdwReason == DLL_PROCESS_DETACH )
-		libterm();
+    switch ( fdwReason )
+    case DLL_PROCESS_ATTACH: case DLL_THREAD_ATTACH: libinit();
+	case DLL_PROCESS_DETACH: libterm();
     return TRUE;
 }
 #endif
