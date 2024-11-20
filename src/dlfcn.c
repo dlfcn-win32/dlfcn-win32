@@ -527,7 +527,7 @@ void *dlsym( void *handle, const char *name )
 {
     dlsym_vars vars = {0};
     FARPROC symbol = NULL;
-    HANDLE hThisProc = GetCurrentProcess( ), hHeap = NULL;
+    HANDLE hThisProc = GetCurrentProcess( );
     DWORD dwMessageId = 0, cbNeeded = 0, i = 0, count = 0;
     HMODULE hCaller = NULL, hModule = GetModuleHandle( NULL ), hIter = NULL;
 
@@ -580,7 +580,7 @@ void *dlsym( void *handle, const char *name )
 
     while ( vars.cbHeapSize < cbNeeded )
     {
-		dwMessageId = dlsym_alloc_heap( cbNeeded );
+		dwMessageId = dlsym_alloc_heap( &vars, cbNeeded );
 		if ( dwMessageId )
 			goto end;
         /* GetModuleHandle( NULL ) only returns the current program file. So
