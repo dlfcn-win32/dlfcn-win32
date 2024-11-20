@@ -243,10 +243,10 @@ static void save_err_ptr_str( const void *ptr, DWORD dwMessageId )
 typedef BOOL (WINAPI *SetThreadErrorModePtrCB)(DWORD, DWORD *);
 BOOL WINAPI MySetThreadErrorMode(DWORD uMode, DWORD *oldMode )
 {
-	UINT mode = SetErrorMode( uMode );
-	if ( oldMode )
-		*oldMode = mode;
-	return TRUE;
+    UINT mode = SetErrorMode( uMode );
+    if ( oldMode )
+        *oldMode = mode;
+    return TRUE;
 }
 static SetThreadErrorModePtrCB SetThreadErrorModePtr = MySetThreadErrorMode;
 static UINT MySetErrorMode( UINT uMode )
@@ -433,8 +433,8 @@ typedef struct
 
 static void dlsym_clear_heap( dlsym_vars *vars )
 {
-	if ( vars->hModules )
-		HeapFree( vars->hHeap, HEAP_NO_SERIALIZE, vars->hModules );
+    if ( vars->hModules )
+        HeapFree( vars->hHeap, HEAP_NO_SERIALIZE, vars->hModules );
     HeapDestroy( vars->hHeap );
     vars->hModules = NULL;
     vars->hHeap = NULL;
@@ -499,10 +499,10 @@ void *dlsym( void *handle, const char *name )
 
     while ( vars.cbHeapSize < cbNeeded )
     {
-		/* We have to allocate more than we need because the spec says
-		 * HeapAlloc cannot allocate the full heap to an allocation as it
-		 * needs some of the memory for internal data, HeapCreate should've
-		 * accounted for this with a prefix allocation but oh well.  */
+        /* We have to allocate more than we need because the spec says
+         * HeapAlloc cannot allocate the full heap to an allocation as it
+         * needs some of the memory for internal data, HeapCreate should've
+         * accounted for this with a prefix allocation but oh well.  */
         vars.hHeap = HeapCreate( 0, cbNeeded*2, cbNeeded * 2 );
         if ( !hHeap )
         {
@@ -560,7 +560,7 @@ void *dlsym( void *handle, const char *name )
     }
 
     if ( i == count )
-		dwMessageId = ERROR_PROC_NOT_FOUND;
+        dwMessageId = ERROR_PROC_NOT_FOUND;
 
 freeHeap:
     dlsym_clear_heap( &vars );
@@ -871,68 +871,68 @@ static BOOL libinitcalled = FALSE;
 static HMODULE hPsapi = NULL;
 static void libterm( void )
 {
-	MyEnumProcessModules = FailEnumProcessModules;
-	if ( hPsapi )
-	{
-		FreeLibrary( hPsapi );
-		hPsapi = NULL;
-	}
-	libinitcalled = FALSE;
+    MyEnumProcessModules = FailEnumProcessModules;
+    if ( hPsapi )
+    {
+        FreeLibrary( hPsapi );
+        hPsapi = NULL;
+    }
+    libinitcalled = FALSE;
 }
 static void libinit( void )
 {
     HMODULE kernel32 = NULL;
-	UINT uMode = 0;
+    UINT uMode = 0;
 
-	if ( libinitcalled )
-		return;
+    if ( libinitcalled )
+        return;
 
-	/* Do not let Windows display the critical-error-handler message box */
-	uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
+    /* Do not let Windows display the critical-error-handler message box */
+    uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
 
-	kernel32 = GetModuleHandleA( "Kernel32.dll" );
-	if( kernel32 )
-	{
-		SetThreadErrorModePtr = (SetThreadErrorModePtrCB)GetProcAddress( kernel32, "SetThreadErrorMode" );
-		GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB)GetProcAddress( kernel32, "GetModuleHandleExA" );
+    kernel32 = GetModuleHandleA( "Kernel32.dll" );
+    if( kernel32 )
+    {
+        SetThreadErrorModePtr = (SetThreadErrorModePtrCB)GetProcAddress( kernel32, "SetThreadErrorMode" );
+        GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB)GetProcAddress( kernel32, "GetModuleHandleExA" );
 
-		if ( !SetThreadErrorModePtr )
-			SetThreadErrorModePtr = MySetThreadErrorMode;
+        if ( !SetThreadErrorModePtr )
+            SetThreadErrorModePtr = MySetThreadErrorMode;
 
-		if ( !GetModuleHandleExAPtr )
-			GetModuleHandleExAPtr = HackyGetModuleHandleExA;
+        if ( !GetModuleHandleExAPtr )
+            GetModuleHandleExAPtr = HackyGetModuleHandleExA;
 
-		/* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
-		MyEnumProcessModules  = (EnumProcessModulesPtrCB)GetProcAddress( kernel32, "K32EnumProcessModules" );
-	}
+        /* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
+        MyEnumProcessModules  = (EnumProcessModulesPtrCB)GetProcAddress( kernel32, "K32EnumProcessModules" );
+    }
 
-	/* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
-	if( !kernel32 || !MyEnumProcessModules )
-	{
-		hPsapi = LoadLibraryA( "Psapi.dll" );
-		if ( !hPsapi )
-			MyEnumProcessModules = FailEnumProcessModules;
-		else
-		{
-			MyEnumProcessModules = (EnumProcessModulesPtrCB)GetProcAddress( hPsapi, "EnumProcessModules" );
-			if( !MyEnumProcessModules )
-				libterm();
-		}
-	}
+    /* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
+    if( !kernel32 || !MyEnumProcessModules )
+    {
+        hPsapi = LoadLibraryA( "Psapi.dll" );
+        if ( !hPsapi )
+            MyEnumProcessModules = FailEnumProcessModules;
+        else
+        {
+            MyEnumProcessModules = (EnumProcessModulesPtrCB)GetProcAddress( hPsapi, "EnumProcessModules" );
+            if( !MyEnumProcessModules )
+                libterm();
+        }
+    }
 
-	MySetErrorMode( uMode );
-	libinitcalled = TRUE;
+    MySetErrorMode( uMode );
+    libinitcalled = TRUE;
 }
 
 #ifdef __GNUC__
-void _libinit(void) { libinit(); } __attribute__((constructor));
-void _libterm(void) { libterm(); } __attribute__((deconstructor));
+static void _libinit(void) { libinit(); } __attribute__((constructor));
+static void _libterm(void) { libterm(); } __attribute__((deconstructor));
 #else
 __declspec(allocate(".CRT$XCU")) void _libinit( void )
 {
-	libinit();
-	/* Not a fan of this since this involves a possible memory allocation */
-	atexit(libterm);
+    libinit();
+    /* Not a fan of this since this involves a possible memory allocation */
+    atexit(libterm);
 }
 #endif
 
@@ -942,11 +942,13 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvTerminated )
     (void) hinstDLL;
     (void) lpvTerminated;
 
-	/* Just a fallback for MSVC, not sure the atexit() will work out ther after
-	 * all */
+    /* Just a fallback for MSVC, not sure the atexit() will work out ther after
+     * all */
     switch ( fdwReason )
+    {
     case DLL_PROCESS_ATTACH: case DLL_THREAD_ATTACH: libinit();
-	case DLL_PROCESS_DETACH: libterm();
+    case DLL_PROCESS_DETACH: libterm();
+    }
     return TRUE;
 }
 #endif
