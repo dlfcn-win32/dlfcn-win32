@@ -568,7 +568,7 @@ end:
     if( dwMessageId )
         save_err_str( name, dwMessageId );
 
-    return *(void **) (&symbol);
+    return symbol ? *(void **) (&symbol) : NULL;
 }
 
 DLFCN_EXPORT
@@ -867,6 +867,7 @@ int dladdr( const void *addr, Dl_info *info )
 
 /* Keep initialiser/terminator code out of DllMain so it can be used in static
  * builds too */
+static BOOL libinitcalled = FALSE;
 static HMODULE hPsapi = NULL;
 static void libterm( void )
 {
@@ -882,20 +883,22 @@ static void libinit( void )
     HMODULE kernel32 = NULL;
 	/* Do not let Windows display the critical-error-handler message box */
 	UINT uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
+	libinitcalled = FALSE;
 
 	kernel32 = GetModuleHandleA( "Kernel32.dll" );
 	if( kernel32 )
 	{
-		SetThreadErrorModePtr = (SetThreadErrorModePtrCB) (LPVOID) GetProcAddress( kernel32, "SetThreadErrorMode" );
-		/* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
-		MyEnumProcessModules  = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( kernel32, "K32EnumProcessModules" );
-		GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB) (LPVOID) GetProcAddress( kernel32, "GetModuleHandleExA" );
+		SetThreadErrorModePtr = (SetThreadErrorModePtrCB)GetProcAddress( kernel32, "SetThreadErrorMode" );
+		GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB)GetProcAddress( kernel32, "GetModuleHandleExA" );
 
 		if ( !SetThreadErrorModePtr )
 			SetThreadErrorModePtr = MySetThreadErrorMode;
 
 		if ( !GetModuleHandleExAPtr )
 			GetModuleHandleExAPtr = HackyGetModuleHandleExA;
+
+		/* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
+		MyEnumProcessModules  = (EnumProcessModulesPtrCB)GetProcAddress( kernel32, "K32EnumProcessModules" );
 	}
 
 	/* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
@@ -906,7 +909,7 @@ static void libinit( void )
 			MyEnumProcessModules = FailEnumProcessModules;
 		else
 		{
-			MyEnumProcessModules = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( hPsapi, "EnumProcessModules" );
+			MyEnumProcessModules = (EnumProcessModulesPtrCB)GetProcAddress( hPsapi, "EnumProcessModules" );
 			if( !MyEnumProcessModules )
 				libterm();
 		}
@@ -923,7 +926,7 @@ __declspec(allocate(".CRT$XCU")) void _libinit( void )
 {
 	libinit();
 	/* Not a fan of this since this involves a possible memory allocation */
-	atexit(_libterm);
+	atexit(libterm);
 }
 #endif
 
