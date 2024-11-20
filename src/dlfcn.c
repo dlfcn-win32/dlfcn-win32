@@ -254,6 +254,7 @@ static UINT MySetErrorMode( UINT uMode )
     DWORD oldMode = 0;
     return (SetThreadErrorModePtr( uMode, &oldMode ) == FALSE) ? 0 : oldMode;
 }
+#include <processthreadsapi.h>
 #include <tlhelp32.h>
 typedef HANDLE (*CreateToolhelp32SnapshotCB)( DWORD dwFlags, DWORD dwPid );
 HANDLE FailCreateToolhelp32Snapshot( DWORD dwFlags, DWORD dwPid )
