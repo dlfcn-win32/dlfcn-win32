@@ -510,7 +510,7 @@ static DWORD dlsym_alloc_heap( dlsym_vars *vars, DWORD cbNeed )
 	/* Using HeapAlloc() allows callers to use dlsym( RTLD_NEXT, "malloc" ) */
 	vars->hModules = HeapAlloc( vars->hHeap, HEAP_ZERO_MEMORY, cbNeed );
 #endif
-	if ( !(vars.hModules) )
+	if ( !(vars->hModules) )
 	{
 		dwMessageId = GetLastError();
 		dlsym_clear_heap( vars );
