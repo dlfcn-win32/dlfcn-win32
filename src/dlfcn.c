@@ -314,7 +314,7 @@ static HMODULE WINAPI MyGetModuleHandleFromAddress( const void *addr )
 
 /* Load Psapi.dll at runtime, this avoids linking caveat */
 typedef BOOL (WINAPI *EnumProcessModulesPtrCB)(HANDLE, HMODULE *, DWORD, LPDWORD);
-BOOL WINAPI FailEnumProcessModules( HANDLE hProcess, HMODULE *hModules, DWORD cb, LPDWORD lpcbNeeded )
+BOOL WINAPI Th32EnumProcessModules( HANDLE hProcess, HMODULE *hModules, DWORD cb, LPDWORD lpcbNeeded )
 {
     DWORD i = 0, count = cb / sizeof(HMODULE);
     MODULEENTRY32 me = {0};
@@ -336,7 +336,7 @@ BOOL WINAPI FailEnumProcessModules( HANDLE hProcess, HMODULE *hModules, DWORD cb
 	if ( lpcbNeeded ) *lpcbNeeded = (i * sizeof(HMODULE));
 	return (i < count);
 }
-static EnumProcessModulesPtrCB MyEnumProcessModules = FailEnumProcessModules;
+static EnumProcessModulesPtrCB MyEnumProcessModules = Th32EnumProcessModules;
 
 DLFCN_EXPORT
 void *dlopen( const char *file, int mode )
@@ -605,9 +605,8 @@ void *dlsym( void *handle, const char *name )
                 hCaller = NULL;
             continue;
         }
-        /* Why was this even added?
-         * if( local_search( hIter ) )
-            continue;*/
+        if( local_search( hIter ) )
+            continue;
         symbol = GetProcAddress( hIter, name );
         if( symbol )
             break;
@@ -925,7 +924,7 @@ static BOOL libinitcalled = FALSE;
 static HMODULE hPsapi = NULL;
 static void libterm( void )
 {
-    MyEnumProcessModules = FailEnumProcessModules;
+    MyEnumProcessModules = Th32EnumProcessModules;
     if ( hPsapi )
     {
         FreeLibrary( hPsapi );
@@ -994,7 +993,7 @@ static void libinit( void )
 		if ( !hPsapi )
 			hPsapi = LoadLibraryA( "Psapi.dll" );
         if ( !hPsapi )
-            MyEnumProcessModules = FailEnumProcessModules;
+            MyEnumProcessModules = Th32EnumProcessModules;
         else
         {
             MyEnumProcessModules = (EnumProcessModulesPtrCB)GetProcAddress( hPsapi, "EnumProcessModules" );
@@ -1024,14 +1023,12 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvTerminated )
 {
     (void) hinstDLL;
     (void) lpvTerminated;
+    libinit();
 
     /* Just a fallback for MSVC, not sure the atexit() will work out ther after
      * all */
-    switch ( fdwReason )
-    {
-    case DLL_PROCESS_ATTACH: case DLL_THREAD_ATTACH: libinit();
-    case DLL_PROCESS_DETACH: libterm();
-    }
+    if ( fdwReason == DLL_PROCESS_DETACH )
+		libterm();
     return TRUE;
 }
 #endif
