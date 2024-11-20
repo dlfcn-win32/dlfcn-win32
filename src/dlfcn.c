@@ -474,7 +474,7 @@ typedef struct
     HANDLE   hHeap;
 } dlsym_vars;
 
-#define TEST_WITH_MALLOC 1
+#define TEST_WITH_MALLOC 0
 
 static void dlsym_clear_heap( dlsym_vars *vars )
 {
@@ -482,11 +482,43 @@ static void dlsym_clear_heap( dlsym_vars *vars )
 #if TEST_WITH_MALLOC
         free( vars->hModules );
 #else
-        HeapFree( vars->hHeap, HEAP_NO_SERIALIZE, vars->hModules );
+        HeapFree( vars->hHeap, 0, vars->hModules );
     HeapDestroy( vars->hHeap );
 #endif
     vars->hModules = NULL;
     vars->hHeap = NULL;
+}
+
+static DWORD dlsym_alloc_heap( dlsym_vars *vars, DWORD cbNeed )
+{
+	DWORD dwMessageId = 0;
+
+#if TEST_WITH_MALLOC
+	vars->hModules = calloc(cbNeed,1);
+#else
+	/* We have to allocate more than we need because the spec says
+	 * HeapAlloc cannot allocate the full heap to an allocation as it
+	 * needs some of the memory for internal data, HeapCreate should've
+	 * accounted for this with a prefix allocation but oh well.  */
+	vars->hHeap = HeapCreate( 0, cbNeed * 2, cbNeed * 2 );
+	if ( !(vars->hHeap) )
+	{
+		dwMessageId = GetLastError();
+		return dwMessageId ? dwMessageId : ERROR_NOT_ENOUGH_MEMORY;
+	}
+
+	/* Using HeapAlloc() allows callers to use dlsym( RTLD_NEXT, "malloc" ) */
+	vars->hModules = HeapAlloc( vars->hHeap, HEAP_ZERO_MEMORY, cbNeed );
+#endif
+	if ( !(vars.hModules) )
+	{
+		dwMessageId = GetLastError();
+		dlsym_clear_heap( vars );
+		return dwMessageId ? dwMessageId : ERROR_INVALID_TABLE;
+	}
+
+	vars->cbHeapSize = cbNeed;
+	return 0;
 }
 
 DLFCN_NOINLINE /* Needed for _ReturnAddress() */
@@ -548,32 +580,9 @@ void *dlsym( void *handle, const char *name )
 
     while ( vars.cbHeapSize < cbNeeded )
     {
-#if TEST_WITH_MALLOC
-        vars.hModules = malloc(cbNeeded);
-#else
-        /* We have to allocate more than we need because the spec says
-         * HeapAlloc cannot allocate the full heap to an allocation as it
-         * needs some of the memory for internal data, HeapCreate should've
-         * accounted for this with a prefix allocation but oh well.  */
-        vars.hHeap = HeapCreate( 0, cbNeeded*2, cbNeeded * 2 );
-        if ( !hHeap )
-        {
-            dwMessageId = GetLastError();
-            if ( !dwMessageId ) dwMessageId = ERROR_NOT_ENOUGH_MEMORY;
-            goto end;
-        }
-
-        /* Using HeapAlloc() allows callers to use dlsym( RTLD_NEXT, "malloc" ) */
-        vars.hModules = HeapAlloc( vars.hHeap, HEAP_ZERO_MEMORY, cbNeeded );
-#endif
-        if ( !(vars.hModules) )
-        {
-            dwMessageId = GetLastError();
-            if ( !dwMessageId ) dwMessageId = ERROR_INVALID_TABLE;
-            goto freeHeap;
-        }
-
-        vars.cbHeapSize = cbNeeded;
+		dwMessageId = dlsym_alloc_heap( cbNeeded );
+		if ( dwMessageId )
+			goto end;
         /* GetModuleHandle( NULL ) only returns the current program file. So
          * if we want to get ALL loaded module including those in linked DLLs,
          * we have to use EnumProcessModules( ). */
