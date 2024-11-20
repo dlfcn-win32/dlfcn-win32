@@ -107,6 +107,8 @@ typedef struct local_object {
     struct local_object *next;
 } local_object;
 
+static local_object first_object;
+
 /* These functions implement a double linked list for the local objects. */
 static local_object *local_search( HMODULE hModule )
 {
@@ -413,7 +415,7 @@ int dlclose( void *hModule )
     if( ret )
         local_rem( hModule );
     else
-        save_err_ptr_str( handle, GetLastError( ) );
+        save_err_ptr_str( hModule, GetLastError( ) );
 
     /* dlclose's return value in inverted in relation to FreeLibrary's. */
     ret = !ret;
