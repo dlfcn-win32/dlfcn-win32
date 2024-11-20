@@ -139,24 +139,24 @@ disabled shared && disabled static && {
     exit 1;
 }
 
+# reduce potential for error when editing, also use more appropriate paths
+tmptest_c=/tmp/test.c
+tmptest_dll=/tmp/test.dll
+compile_tmptest=$$cc -shared -o $$tmptest_dll $$tmptest_c
 # simple cc test
-cat > tmptest.c << EOF
+cat > $tmptest_c << EOF
 #include <windows.h>
 void function(void)
 { LoadLibrary(NULL); }
 EOF
-echo testing compiler: $cc -shared -o tmptest.dll tmptest.c
-$cc -shared -o tmptest.dll tmptest.c
+echo Compiler Test: $compile_tmptest
+$compile_tmptest
 
 test "$?" != 0 && {
     echo "$cc could not create shared file with Windows API functions.";
     echo "Make sure your MinGW system is working properly.";
     exit 1;
 }
-
-# Cleanup after outselves instead of leaving junk files around
-rm tmptest.dll > /dev/null
-rm tmptest.c > /dev/null
 
 if enabled wine; then      # wine explicitly enabled
     $winecmd --version > /dev/null 2>&1 /dev/null || {
