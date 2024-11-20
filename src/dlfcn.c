@@ -431,11 +431,17 @@ typedef struct
     HANDLE   hHeap;
 } dlsym_vars;
 
+#define TEST_WITH_MALLOC 1
+
 static void dlsym_clear_heap( dlsym_vars *vars )
 {
     if ( vars->hModules )
+#if TEST_WITH_MALLOC
+        free( vars->hModules );
+#else
         HeapFree( vars->hHeap, HEAP_NO_SERIALIZE, vars->hModules );
     HeapDestroy( vars->hHeap );
+#endif
     vars->hModules = NULL;
     vars->hHeap = NULL;
 }
@@ -482,7 +488,7 @@ void *dlsym( void *handle, const char *name )
 
         symbol = GetProcAddress( handle, name );
 
-        if( symbol != NULL )
+        if( symbol )
             goto end;
     }
 
@@ -499,6 +505,9 @@ void *dlsym( void *handle, const char *name )
 
     while ( vars.cbHeapSize < cbNeeded )
     {
+#if TEST_WITH_MALLOC
+        vars.hModules = malloc(cbNeeded);
+#else
         /* We have to allocate more than we need because the spec says
          * HeapAlloc cannot allocate the full heap to an allocation as it
          * needs some of the memory for internal data, HeapCreate should've
@@ -511,15 +520,17 @@ void *dlsym( void *handle, const char *name )
             goto end;
         }
 
-        vars.cbHeapSize = cbNeeded;
         /* Using HeapAlloc() allows callers to use dlsym( RTLD_NEXT, "malloc" ) */
         vars.hModules = HeapAlloc( vars.hHeap, HEAP_ZERO_MEMORY, cbNeeded );
+#endif
         if ( !(vars.hModules) )
         {
             dwMessageId = GetLastError();
             if ( !dwMessageId ) dwMessageId = ERROR_INVALID_TABLE;
             goto freeHeap;
         }
+
+        vars.cbHeapSize = cbNeeded;
         /* GetModuleHandle( NULL ) only returns the current program file. So
          * if we want to get ALL loaded module including those in linked DLLs,
          * we have to use EnumProcessModules( ). */
@@ -568,7 +579,7 @@ end:
     if( dwMessageId )
         save_err_str( name, dwMessageId );
 
-    return symbol ? *(void **) (&symbol) : NULL;
+    return *(void **) (&symbol);
 }
 
 DLFCN_EXPORT
@@ -909,7 +920,8 @@ static void libinit( void )
     /* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
     if( !kernel32 || !MyEnumProcessModules )
     {
-        hPsapi = LoadLibraryA( "Psapi.dll" );
+		if ( !hPsapi )
+			hPsapi = LoadLibraryA( "Psapi.dll" );
         if ( !hPsapi )
             MyEnumProcessModules = FailEnumProcessModules;
         else
