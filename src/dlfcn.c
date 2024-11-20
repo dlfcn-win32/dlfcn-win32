@@ -249,14 +249,14 @@ BOOL WINAPI MySetThreadErrorMode(DWORD uMode, DWORD *oldMode )
     return TRUE;
 }
 static SetThreadErrorModePtrCB SetThreadErrorModePtr = MySetThreadErrorMode;
-static UINT MySetErrorMode( UINT uMode )
+static UINT WINAPI MySetErrorMode( UINT uMode )
 {
     DWORD oldMode = 0;
     return (SetThreadErrorModePtr( uMode, &oldMode ) == FALSE) ? 0 : oldMode;
 }
 
 typedef DWORD (WINAPI *GetProcessIdCB)( HANDLE hProcess );
-DWORD FailGetProcessId( HANDLE hProcess )
+DWORD WINAPI FailGetProcessId( HANDLE hProcess )
 {
 	(void)hProcess;
 	SetLastError( E_NOINTERFACE );
@@ -275,8 +275,8 @@ HANDLE WINAPI FailCreateToolhelp32Snapshot( DWORD dwFlags, DWORD dwPid )
 }
 static CreateToolhelp32SnapshotCB MyCreateToolhelp32Snapshot = FailCreateToolhelp32Snapshot;
 
-typedef BOOL (*Module32NextCB)( HANDLE hSnapshot, LPMODULEENTRY32 lpme );
-BOOL FailModule32Next( HANDLE hSnapshot, LPMODULEENTRY32 lpme )
+typedef BOOL (WINAPI *Module32NextCB)( HANDLE hSnapshot, LPMODULEENTRY32 lpme );
+BOOL WINAPI FailModule32Next( HANDLE hSnapshot, LPMODULEENTRY32 lpme )
 {
 	(void)hSnapshot;
 	(void)lpme;
@@ -303,7 +303,7 @@ BOOL WINAPI HackyGetModuleHandleExA
     return TRUE;
 }
 static GetModuleHandleExAPtrCB GetModuleHandleExAPtr = HackyGetModuleHandleExA;
-static HMODULE MyGetModuleHandleFromAddress( const void *addr )
+static HMODULE WINAPI MyGetModuleHandleFromAddress( const void *addr )
 {
     HMODULE hModule = NULL;
     /* If GetModuleHandleExA is available use it with GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS */
@@ -539,7 +539,7 @@ void *dlsym( void *handle, const char *name )
 
     /* If gonna make a call either way then might as well use this instead
      * of GetSystemInfo() for the pagesize */
-    if ( MyEnumProcessModules( hThisProc, NULL, 0, &cbNeeded ) == FALSE )
+    if ( !MyEnumProcessModules( hThisProc, NULL, 0, &cbNeeded ) || !cbNeeded )
     {
         dwMessageId = GetLastError();
         if ( !dwMessageId ) dwMessageId = ERROR_FUNCTION_FAILED;
@@ -577,7 +577,7 @@ void *dlsym( void *handle, const char *name )
         /* GetModuleHandle( NULL ) only returns the current program file. So
          * if we want to get ALL loaded module including those in linked DLLs,
          * we have to use EnumProcessModules( ). */
-        if ( MyEnumProcessModules( hThisProc, vars.hModules, cbNeeded, &cbNeeded ) == FALSE )
+        if ( !MyEnumProcessModules( hThisProc, vars.hModules, cbNeeded, &cbNeeded ) || !cbNeeded )
         {
             dwMessageId = GetLastError();
             if ( !dwMessageId ) dwMessageId = ERROR_CALLBACK_SUPPLIED_INVALID_DATA;
