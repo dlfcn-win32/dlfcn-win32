@@ -254,6 +254,26 @@ static UINT MySetErrorMode( UINT uMode )
     DWORD oldMode = 0;
     return (SetThreadErrorModePtr( uMode, &oldMode ) == FALSE) ? 0 : oldMode;
 }
+#include <tlhelp32.h>
+typedef HANDLE (*CreateToolhelp32SnapshotCB)( DWORD dwFlags, DWORD dwPid );
+HANDLE FailCreateToolhelp32Snapshot( DWORD dwFlags, DWORD dwPid )
+{
+	(void)dwFlags;
+	(void)dwPid;
+	SetLastError( E_NOINTERFACE );
+	return INVALID_HANDLE_VALUE;
+}
+static CreateToolhelp32SnapshotCB MyCreateToolhelp32Snapshot = FailCreateToolhelp32Snapshot;
+
+typedef BOOL (*Module32NextCB)( HANDLE hSnapshot, LPMODULEENTRY32 lpme );
+BOOL FailModule32Next( HANDLE hSnapshot, LPMODULEENTRY32 lpme )
+{
+	(void)hSnapshot;
+	(void)lpme;
+	SetLastError( E_NOINTERFACE );
+	return FALSE;
+}
+static Module32NextCB MyModule32First = FailModule32Next, MyModule32Next = FailModule32Next;
 
 typedef BOOL (WINAPI *GetModuleHandleExAPtrCB)(DWORD, LPCSTR, HMODULE *);
 BOOL WINAPI HackyGetModuleHandleExA
@@ -284,14 +304,30 @@ static HMODULE MyGetModuleHandleFromAddress( const void *addr )
 
 /* Load Psapi.dll at runtime, this avoids linking caveat */
 typedef BOOL (WINAPI *EnumProcessModulesPtrCB)(HANDLE, HMODULE *, DWORD, LPDWORD);
-BOOL WINAPI FailEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded )
+BOOL WINAPI FailEnumProcessModules( HANDLE hProcess, HMODULE *hModules, DWORD cb, LPDWORD lpcbNeeded )
 {
-    (void)hProcess;
     (void)lphModule;
     (void)cb;
     (void)lpcbNeeded;
-    SetLastError(E_NOINTERFACE);
-    return FALSE;
+    DWORD i = 0, count = cb / sizeof(HMODULE);
+    MODULEENTRY32 me = {0};
+    HANDLE hShot = MyCreateToolhelp32Snapshot( TH32CS_SNAPMODULE, GetProcessId( hProcess );
+    if ( hShot == INVALID_HANDLE_VALUE )
+        return FALSE;
+    me.dwSize = sizeof(me);
+	for
+	(
+		BOOL cont = MyModule32First( hShot, &me )
+		; cont == TRUE; cont = MyModule32Next( hShot, &me )
+	)
+	{
+		if ( i < count )
+			hModules[i] = me.hModule;
+		++i;
+	}
+	CloseHandle( hShot );
+	if ( lpcbNeeded ) lpcbNeeded = i;
+	return (i < count);
 }
 static EnumProcessModulesPtrCB MyEnumProcessModules = FailEnumProcessModules;
 
@@ -431,7 +467,7 @@ typedef struct
     HANDLE   hHeap;
 } dlsym_vars;
 
-#define TEST_WITH_MALLOC 1
+#define TEST_WITH_MALLOC 0
 
 static void dlsym_clear_heap( dlsym_vars *vars )
 {
@@ -906,12 +942,33 @@ static void libinit( void )
     {
         SetThreadErrorModePtr = (SetThreadErrorModePtrCB)GetProcAddress( kernel32, "SetThreadErrorMode" );
         GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB)GetProcAddress( kernel32, "GetModuleHandleExA" );
+        MyCreateToolhelp32Snapshot = (CreateToolhelp32SnapshotCB)GetProcAddress( kernel32, "K32CreateToolHelp32SnapShot" );
+        MyModule32First = (Module32NextCB)GetProcAddress(kernel32, "K32Module32First" );
+        MyModule32Next = (Module32NextCB)GetProcAddress(kernel32, "K32Module32Next" );
 
         if ( !SetThreadErrorModePtr )
             SetThreadErrorModePtr = MySetThreadErrorMode;
 
         if ( !GetModuleHandleExAPtr )
             GetModuleHandleExAPtr = HackyGetModuleHandleExA;
+
+        if ( !MyCreateToolhelp32Snapshot )
+            MyCreateToolhelp32Snapshot = (CreateToolhelp32SnapshotCB)GetProcAddress( kernel32, "CreateToolHelp32SnapShot" );
+
+        if ( !MyModule32First )
+            MyModule32First = (Module32NextCB)GetProcAddress(kernel32, "Module32First" );
+
+        if ( !MyModule32Next )
+            MyModule32Next = (Module32NextCB)GetProcAddress(kernel32, "Module32Next" );
+
+        if ( !MyCreateToolhelp32Snapshot )
+            MyCreateToolhelp32Snapshot = FailCreateToolhelp32Snapshot;
+
+        if ( !MyModule32First )
+            MyModule32First = FailModule32Next;
+
+        if ( !MyModule32Next )
+            MyModule32Next = FailModule32Next;
 
         /* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
         MyEnumProcessModules  = (EnumProcessModulesPtrCB)GetProcAddress( kernel32, "K32EnumProcessModules" );
