@@ -311,7 +311,7 @@ BOOL WINAPI FailEnumProcessModules( HANDLE hProcess, HMODULE *hModules, DWORD cb
     (void)lpcbNeeded;
     DWORD i = 0, count = cb / sizeof(HMODULE);
     MODULEENTRY32 me = {0};
-    HANDLE hShot = MyCreateToolhelp32Snapshot( TH32CS_SNAPMODULE, GetProcessId( hProcess );
+    HANDLE hShot = MyCreateToolhelp32Snapshot( TH32CS_SNAPMODULE, GetProcessId( hProcess ) );
     if ( hShot == INVALID_HANDLE_VALUE )
         return FALSE;
     me.dwSize = sizeof(me);
