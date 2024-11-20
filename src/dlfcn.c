@@ -949,7 +949,7 @@ static void libinit( void )
     {
         SetThreadErrorModePtr = (SetThreadErrorModePtrCB)GetProcAddress( kernel32, "SetThreadErrorMode" );
         GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB)GetProcAddress( kernel32, "GetModuleHandleExA" );
-        MyGetProcessId = (GetProcessIdCB)GetProcAddress( "K32GetProcessId");
+        MyGetProcessId = (GetProcessIdCB)GetProcAddress( kernel32, "K32GetProcessId");
         MyCreateToolhelp32Snapshot = (CreateToolhelp32SnapshotCB)GetProcAddress( kernel32, "K32CreateToolHelp32SnapShot" );
         MyModule32First = (Module32NextCB)GetProcAddress(kernel32, "K32Module32First" );
         MyModule32Next = (Module32NextCB)GetProcAddress(kernel32, "K32Module32Next" );
@@ -961,7 +961,7 @@ static void libinit( void )
             GetModuleHandleExAPtr = HackyGetModuleHandleExA;
 
         if ( !MyGetProcessId )
-            MyGetProcessId = (GetProcessIdCB)GetProcAddress( "GetProcessId");
+            MyGetProcessId = (GetProcessIdCB)GetProcAddress( kernel32, "GetProcessId");
 
         if ( !MyCreateToolhelp32Snapshot )
             MyCreateToolhelp32Snapshot = (CreateToolhelp32SnapshotCB)GetProcAddress( kernel32, "CreateToolHelp32SnapShot" );
