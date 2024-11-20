@@ -1016,8 +1016,8 @@ static void libinit( void )
 }
 
 #ifdef __GNUC__
-static void _libinit(void) { libinit(); } __attribute__((constructor));
-static void _libterm(void) { libterm(); } __attribute__((deconstructor));
+static void __attribute__((constructor))   _libinit(void) { libinit(); };
+static void __attribute__((deconstructor)) _libterm(void) { libterm(); };
 #else
 __declspec(allocate(".CRT$XCU")) void _libinit( void )
 {
