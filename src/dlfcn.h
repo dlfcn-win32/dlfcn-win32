@@ -57,11 +57,14 @@ extern "C" {
  * Note: All other RTLD_* flags in any dlfcn.h are not standard compliant.
  */
 
+/* HMODULE will never use an unaligned address like 1 & 3 so use those to
+ * enable abandoning the linked list used before with 0 and -1 */
+
 /* The symbol lookup happens in the normal global scope. */
-#define RTLD_DEFAULT    ((void *)0)
+#define RTLD_DEFAULT    ((HMODULE)1)
 
 /* Specifies the next object after this one that defines name. */
-#define RTLD_NEXT       ((void *)-1)
+#define RTLD_NEXT       ((HMODULE)3)
 
 /* Structure filled in by dladdr() */
 typedef struct dl_info

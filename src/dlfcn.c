@@ -107,14 +107,12 @@ typedef struct local_object {
     struct local_object *next;
 } local_object;
 
-static local_object first_object;
-
 /* These functions implement a double linked list for the local objects. */
 static local_object *local_search( HMODULE hModule )
 {
-    local_object *pobject;
+    local_object *pobject = NULL;
 
-    if( hModule == NULL )
+    if( !hModule )
         return NULL;
 
     for( pobject = &first_object; pobject; pobject = pobject->next )
@@ -126,10 +124,10 @@ static local_object *local_search( HMODULE hModule )
 
 static BOOL local_add( HMODULE hModule )
 {
-    local_object *pobject;
-    local_object *nobject;
+    local_object *pobject = NULL;
+    local_object *nobject = NULL;
 
-    if( hModule == NULL )
+    if( !hModule )
         return TRUE;
 
     pobject = local_search( hModule );
@@ -149,15 +147,14 @@ static BOOL local_add( HMODULE hModule )
     nobject->next = NULL;
     nobject->previous = pobject;
     nobject->hModule = hModule;
-
     return TRUE;
 }
 
 static void local_rem( HMODULE hModule )
 {
-    local_object *pobject;
+    local_object *pobject = NULL;
 
-    if( hModule == NULL )
+    if( !hModule )
         return;
 
     pobject = local_search( hModule );
@@ -178,7 +175,7 @@ static void local_rem( HMODULE hModule )
  * MSDN says the buffer cannot be larger than 64K bytes, so we set it to
  * the limit.
  */
-static char error_buffer[65535];
+static char error_buffer[65535] = {0};
 static BOOL error_occurred = FALSE;
 
 static void save_err_str( const char *str, DWORD dwMessageId )
@@ -299,8 +296,8 @@ static EnumProcessModulesPtrCB MyEnumProcessModules = FailEnumProcessModules;
 DLFCN_EXPORT
 void *dlopen( const char *file, int mode )
 {
-    HMODULE hModule;
-    UINT uMode;
+    HMODULE hModule = NULL;
+    UINT uMode = 0;
 
     error_occurred = FALSE;
 
@@ -326,10 +323,10 @@ void *dlopen( const char *file, int mode )
     }
     else
     {
-        HANDLE hThisProc;
-        DWORD dwProcModsBefore, dwProcModsAfter;
-        char lpFileName[MAX_PATH];
-        size_t i, len;
+        HANDLE hThisProc = NULL;
+        DWORD dwProcModsBefore = 0, dwProcModsAfter = 0;
+        char lpFileName[MAX_PATH] = {0};
+        size_t i = 0, len = 0;
 
         len = strlen( file );
 
@@ -400,18 +397,15 @@ void *dlopen( const char *file, int mode )
     /* Return to previous state of the error-mode bit flags. */
     MySetErrorMode( uMode );
 
-    return (void *) hModule;
+    return hModule;
 }
 
 DLFCN_EXPORT
-int dlclose( void *handle )
+int dlclose( void *hModule )
 {
-    HMODULE hModule = (HMODULE) handle;
-    BOOL ret;
+    BOOL ret = FreeLibrary( hModule );
 
     error_occurred = FALSE;
-
-    ret = FreeLibrary( hModule );
 
     /* If the object was loaded with RTLD_LOCAL, remove it from list of local
      * objects.
@@ -435,7 +429,7 @@ typedef struct
     HANDLE   hHeap;
 } dlsym_vars;
 
-void dlsym_clear_heap( dlsym_vars *vars )
+static void dlsym_clear_heap( dlsym_vars *vars )
 {
 	if ( vars->hModules )
 		HeapFree( vars->hHeap, HEAP_NO_SERIALIZE, vars->hModules );
@@ -454,7 +448,7 @@ void *dlsym( void *handle, const char *name )
     DWORD dwMessageId = 0, cbNeeded = 0, i = 0, count = 0;
     HMODULE hCaller = NULL, hModule = GetModuleHandle( NULL ), hIter = NULL;
 
-    error_occurred = FALSE;
+    error_occurred = 0;
     SetLastError(0);
 
     /* The symbol lookup happens in the normal global scope; that is,
@@ -484,7 +478,7 @@ void *dlsym( void *handle, const char *name )
         if ( handle == RTLD_DEFAULT )
             handle = hModule;
 
-        symbol = GetProcAddress( (HMODULE) handle, name );
+        symbol = GetProcAddress( handle, name );
 
         if( symbol != NULL )
             goto end;
@@ -507,7 +501,7 @@ void *dlsym( void *handle, const char *name )
 		 * HeapAlloc cannot allocate the full heap to an allocation as it
 		 * needs some of the memory for internal data, HeapCreate should've
 		 * accounted for this with a prefix allocation but oh well.  */
-        vars.hHeap = HeapCreate( HEAP_NO_SERIALIZE, cbNeeded, cbNeeded * 2 );
+        vars.hHeap = HeapCreate( 0, cbNeeded*2, cbNeeded * 2 );
         if ( !hHeap )
         {
             dwMessageId = GetLastError();
@@ -517,7 +511,7 @@ void *dlsym( void *handle, const char *name )
 
         vars.cbHeapSize = cbNeeded;
         /* Using HeapAlloc() allows callers to use dlsym( RTLD_NEXT, "malloc" ) */
-        vars.hModules = HeapAlloc( vars.hHeap, HEAP_NO_SERIALIZE | HEAP_ZERO_MEMORY, cbNeeded );
+        vars.hModules = HeapAlloc( vars.hHeap, HEAP_ZERO_MEMORY, cbNeeded );
         if ( !(vars.hModules) )
         {
             dwMessageId = GetLastError();
@@ -555,14 +549,15 @@ void *dlsym( void *handle, const char *name )
                 hCaller = NULL;
             continue;
         }
-        if( local_search( hIter ) )
-            continue;
+        /* Why was this even added?
+         * if( local_search( hIter ) )
+            continue;*/
         symbol = GetProcAddress( hIter, name );
         if( symbol )
             break;
     }
 
-    if ( !symbol )
+    if ( i == count )
 		dwMessageId = ERROR_PROC_NOT_FOUND;
 
 freeHeap:
@@ -868,65 +863,78 @@ int dladdr( const void *addr, Dl_info *info )
     return 1;
 }
 
+/* Keep initialiser/terminator code out of DllMain so it can be used in static
+ * builds too */
+static HMODULE hPsapi = NULL;
+static void libterm( void )
+{
+	MyEnumProcessModules = FailEnumProcessModules;
+	if ( hPsapi )
+	{
+		FreeLibrary( hPsapi );
+		hPsapi = NULL;
+	}
+}
+static void libinit( void )
+{
+    HMODULE kernel32 = NULL;
+	/* Do not let Windows display the critical-error-handler message box */
+	UINT uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
+
+	kernel32 = GetModuleHandleA( "Kernel32.dll" );
+	if( kernel32 )
+	{
+		SetThreadErrorModePtr = (SetThreadErrorModePtrCB) (LPVOID) GetProcAddress( kernel32, "SetThreadErrorMode" );
+		/* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
+		MyEnumProcessModules  = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( kernel32, "K32EnumProcessModules" );
+		GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB) (LPVOID) GetProcAddress( kernel32, "GetModuleHandleExA" );
+
+		if ( !SetThreadErrorModePtr )
+			SetThreadErrorModePtr = MySetThreadErrorMode;
+
+		if ( !GetModuleHandleExAPtr )
+			GetModuleHandleExAPtr = HackyGetModuleHandleExA;
+	}
+
+	/* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
+	if( !kernel32 || !MyEnumProcessModules )
+	{
+		hPsapi = LoadLibraryA( "Psapi.dll" );
+		if ( !hPsapi )
+			MyEnumProcessModules = FailEnumProcessModules;
+		else
+		{
+			MyEnumProcessModules = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( hPsapi, "EnumProcessModules" );
+			if( !MyEnumProcessModules )
+				libterm();
+		}
+	}
+
+	MySetErrorMode( uMode );
+}
+
+#ifdef __GNUC__
+void _libinit(void) { libinit(); } __attribute__((constructor));
+void _libterm(void) { libterm(); } __attribute__((deconstructor));
+#else
+__declspec(allocate(".CRT$XCU")) void _libinit( void )
+{
+	libinit();
+	/* Not a fan of this since this involves a possible memory allocation */
+	atexit(_libterm);
+}
+#endif
+
 #ifdef DLFCN_WIN32_SHARED
 BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvTerminated )
 {
     (void) hinstDLL;
     (void) lpvTerminated;
 
-    UINT uMode = 0;
-    HMODULE kernel32 = NULL;
-    static HMODULE psapi = NULL;
-
-    switch ( fdwReason )
-    {
-    case DLL_PROCESS_ATTACH:
-        /* Do not let Windows display the critical-error-handler message box */
-        uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
-
-        kernel32 = GetModuleHandleA( "Kernel32.dll" );
-        if( kernel32 )
-        {
-            SetThreadErrorModePtr = (SetThreadErrorModePtrCB) (LPVOID) GetProcAddress( kernel32, "SetThreadErrorMode" );
-            /* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
-            MyEnumProcessModules  = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( kernel32, "K32EnumProcessModules" );
-            GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB) (LPVOID) GetProcAddress( kernel32, "GetModuleHandleExA" );
-
-            if ( !SetThreadErrorModePtr )
-				SetThreadErrorModePtr = MySetThreadErrorMode;
-
-            if ( !GetModuleHandleExAPtr )
-				GetModuleHandleExAPtr = HackyGetModuleHandleExA;
-        }
-
-        /* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
-        if( !kernel32 || !MyEnumProcessModules )
-        {
-            psapi = LoadLibraryA( "Psapi.dll" );
-            if ( !psapi )
-				MyEnumProcessModules = FailEnumProcessModules;
-            else
-            {
-                MyEnumProcessModules = (EnumProcessModulesPtrCB) (LPVOID) GetProcAddress( psapi, "EnumProcessModules" );
-                if( !MyEnumProcessModules )
-                {
-                    MyEnumProcessModules = FailEnumProcessModules;
-                    FreeLibrary( psapi );
-                    psapi = NULL;
-                }
-            }
-        }
-
-        MySetErrorMode( uMode );
-        break;
-    case DLL_PROCESS_DETACH:
-		MyEnumProcessModules = FailEnumProcessModules;
-        if ( psapi )
-        {
-            FreeLibrary( psapi );
-            psapi = NULL;
-        }
-    }
+	/* Just a fallback for MSVC, not sure the atexit() will work out ther after
+	 * all */
+    if ( fdwReason == DLL_PROCESS_DETACH )
+		libterm();
     return TRUE;
 }
 #endif
