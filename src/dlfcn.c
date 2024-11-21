@@ -101,6 +101,8 @@ __declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4]
  * any kind of thread safety.
  */
 
+static void libinit( void );
+
 typedef struct local_object {
     HMODULE hModule;
     struct local_object *previous;
@@ -346,6 +348,9 @@ void *dlopen( const char *file, int mode )
     UINT uMode = 0;
 
     error_occurred = FALSE;
+#ifndef DLFCN_WIN32_SHARED
+    libinit();
+#endif
 
     /* Do not let Windows display the critical-error-handler message box */
     uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
@@ -452,6 +457,9 @@ int dlclose( void *hModule )
     BOOL ret = FreeLibrary( hModule );
 
     error_occurred = FALSE;
+#ifndef DLFCN_WIN32_SHARED
+    libinit();
+#endif
 
     /* If the object was loaded with RTLD_LOCAL, remove it from list of local
      * objects.
@@ -534,6 +542,10 @@ void *dlsym( void *handle, const char *name )
 
     error_occurred = 0;
     SetLastError(0);
+
+#ifndef DLFCN_WIN32_SHARED
+    libinit();
+#endif
 
     /* The symbol lookup happens in the normal global scope; that is,
     * a search for a symbol using this handle would find the same
@@ -880,6 +892,9 @@ static BOOL fill_info( const void *addr, Dl_info *info )
 DLFCN_EXPORT
 int dladdr( const void *addr, Dl_info *info )
 {
+#ifndef DLFCN_WIN32_SHARED
+    libinit();
+#endif
     if( info == NULL )
         return 0;
 
@@ -1019,20 +1034,6 @@ static void libinit( void )
 #ifdef __GNUC__
 static void __attribute__((constructor))   _libinit(void) { libinit(); };
 static void __attribute__((deconstructor)) _libterm(void) { libterm(); };
-#else
-struct lib {
-	lib(void) { libinit(); }
-	~lib(void) { libterm(); }
-} _lib;
-#if 0
-#pragma code_seg(".CRT$XCU")
-__declspec(allocate(".CRT$XCU")) static void _libinit( void )
-{
-    libinit();
-    /* Not a fan of this since this involves a possible memory allocation */
-    atexit(libterm);
-}
-#endif
 #endif
 
 #ifdef DLFCN_WIN32_SHARED
