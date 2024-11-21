@@ -1020,13 +1020,19 @@ static void libinit( void )
 static void __attribute__((constructor))   _libinit(void) { libinit(); };
 static void __attribute__((deconstructor)) _libterm(void) { libterm(); };
 #else
+struct lib {
+	lib(void) { libinit(); }
+	~lib(void) { libterm(); }
+} _lib;
+#if 0
 #pragma code_seg(".CRT$XCU")
-static void __declspec(allocate(".CRT$XCU")) _libinit( void )
+__declspec(allocate(".CRT$XCU")) static void _libinit( void )
 {
     libinit();
     /* Not a fan of this since this involves a possible memory allocation */
     atexit(libterm);
 }
+#endif
 #endif
 
 #ifdef DLFCN_WIN32_SHARED
