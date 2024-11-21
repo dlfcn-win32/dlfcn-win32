@@ -24,6 +24,10 @@
  * THE SOFTWARE.
  */
 
+#ifdef _MSC_VER
+#pragma comment( lib, "KERNEL32" )
+#endif
+
 #ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h> /* malloc() and free() */
