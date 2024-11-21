@@ -1021,7 +1021,7 @@ static void __attribute__((constructor))   _libinit(void) { libinit(); };
 static void __attribute__((deconstructor)) _libterm(void) { libterm(); };
 #else
 #pragma code_seg(".CRT$XCU")
-__declspec(allocate(".CRT$XCU")) void _libinit( void )
+static void __declspec(allocate(".CRT$XCU")) _libinit( void )
 {
     libinit();
     /* Not a fan of this since this involves a possible memory allocation */
