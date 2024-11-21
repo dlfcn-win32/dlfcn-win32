@@ -259,7 +259,7 @@ typedef DWORD (WINAPI *GetProcessIdCB)( HANDLE hProcess );
 DWORD WINAPI FailGetProcessId( HANDLE hProcess )
 {
 	(void)hProcess;
-	SetLastError( E_NOINTERFACE );
+	SetLastError( (DWORD)E_NOINTERFACE );
 	return 0;
 }
 static GetProcessIdCB MyGetProcessId = NULL;
@@ -270,7 +270,7 @@ HANDLE WINAPI FailCreateToolhelp32Snapshot( DWORD dwFlags, DWORD dwPid )
 {
 	(void)dwFlags;
 	(void)dwPid;
-	SetLastError( E_NOINTERFACE );
+	SetLastError( (DWORD)E_NOINTERFACE );
 	return INVALID_HANDLE_VALUE;
 }
 static CreateToolhelp32SnapshotCB MyCreateToolhelp32Snapshot = FailCreateToolhelp32Snapshot;
@@ -280,7 +280,7 @@ BOOL WINAPI FailModule32Next( HANDLE hSnapshot, LPMODULEENTRY32 lpme )
 {
 	(void)hSnapshot;
 	(void)lpme;
-	SetLastError( E_NOINTERFACE );
+	SetLastError( (DWORD)E_NOINTERFACE );
 	return FALSE;
 }
 static Module32NextCB MyModule32First = FailModule32Next, MyModule32Next = FailModule32Next;
@@ -294,6 +294,7 @@ BOOL WINAPI HackyGetModuleHandleExA
      */
     MEMORY_BASIC_INFORMATION info;
     size_t sLen = VirtualQuery( lpModuleName, &info, sizeof( info ) );
+    (void)dwFlags;
     if( sLen != sizeof( info ) )
     {
         *phModule = NULL;
@@ -652,7 +653,7 @@ char *dlerror( void )
  * for details */
 
 /* Get specific image section */
-static BOOL get_image_section( HMODULE module, int index, void **ptr, DWORD *size )
+static BOOL get_image_section( HMODULE module, DWORD index, void **ptr, DWORD *size )
 {
     IMAGE_DOS_HEADER *dosHeader;
     IMAGE_NT_HEADERS *ntHeaders;
@@ -933,9 +934,9 @@ static BOOL libinitcalled = FALSE;
 static HMODULE hPsapi = NULL;
 static void libterm( void )
 {
-    MyEnumProcessModules = Th32EnumProcessModules;
     if ( hPsapi )
     {
+		MyEnumProcessModules = Th32EnumProcessModules;
         FreeLibrary( hPsapi );
         hPsapi = NULL;
     }
@@ -1019,6 +1020,7 @@ static void libinit( void )
 static void __attribute__((constructor))   _libinit(void) { libinit(); };
 static void __attribute__((deconstructor)) _libterm(void) { libterm(); };
 #else
+#pragma code_seg(".CRT$XCU")
 __declspec(allocate(".CRT$XCU")) void _libinit( void )
 {
     libinit();
