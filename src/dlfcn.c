@@ -101,6 +101,10 @@ __declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4]
  * any kind of thread safety.
  */
 
+#if defined(_MSC_VER) && !defined(DLFCN_WIN32_SHARED)
+#define DLFCN32_WIN32_STATIC_MSC 1
+#endif
+
 static void libinit( void );
 
 typedef struct local_object {
@@ -348,7 +352,7 @@ void *dlopen( const char *file, int mode )
     UINT uMode = 0;
 
     error_occurred = FALSE;
-#ifndef DLFCN_WIN32_SHARED
+#ifndef DLFCN_WIN32_STATIC_MSC
     libinit();
 #endif
 
@@ -457,7 +461,7 @@ int dlclose( void *hModule )
     BOOL ret = FreeLibrary( hModule );
 
     error_occurred = FALSE;
-#ifndef DLFCN_WIN32_SHARED
+#ifndef DLFCN_WIN32_STATIC_MSC
     libinit();
 #endif
 
@@ -543,7 +547,7 @@ void *dlsym( void *handle, const char *name )
     error_occurred = 0;
     SetLastError(0);
 
-#ifndef DLFCN_WIN32_SHARED
+#ifndef DLFCN_WIN32_STATIC_MSC
     libinit();
 #endif
 
@@ -892,7 +896,7 @@ static BOOL fill_info( const void *addr, Dl_info *info )
 DLFCN_EXPORT
 int dladdr( const void *addr, Dl_info *info )
 {
-#ifndef DLFCN_WIN32_SHARED
+#ifndef DLFCN_WIN32_STATIC_MSC
     libinit();
 #endif
     if( info == NULL )
@@ -945,6 +949,9 @@ int dladdr( const void *addr, Dl_info *info )
 
 /* Keep initialiser/terminator code out of DllMain so it can be used in static
  * builds too */
+#ifdef DLFCN32_WIN32_STATIC_MSC
+static BOOL libterm_atexit = FALSE;
+#endif
 static BOOL libinitcalled = FALSE;
 static HMODULE hPsapi = NULL;
 static void libterm( void )
@@ -1029,6 +1036,13 @@ static void libinit( void )
 
     MySetErrorMode( uMode );
     libinitcalled = TRUE;
+#ifdef DLFCN32_WIN32_STATIC_MSC
+	if ( !libterm_atexit )
+	{
+		atexit(libterm);
+		libterm_atexit = TRUE;
+	}
+#endif
 }
 
 #ifdef __GNUC__
