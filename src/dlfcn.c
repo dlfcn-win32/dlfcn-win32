@@ -955,4 +955,15 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
     (void) lpvReserved;
     return TRUE;
 }
+
+/* When requested defines DLL entry point which avoids using CRT library */
+#ifdef DLFCN_WIN32_SHARED_ENTRYPOINT
+#ifdef __cplusplus
+extern "C"
+#endif
+BOOL WINAPI _DllMainCRTStartup( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
+{
+    return DllMain( hinstDLL, fdwReason, lpvReserved );
+}
+#endif
 #endif
