@@ -78,9 +78,30 @@ extern "C" void *_ReturnAddress(void);
  * because inline assembly does not have a return value, put it into naked
  * function which does not have prologue and epilogue and preserve registers.
  * When compiling in C++ mode, it is required to have C declaration for _alloca.
+ * For using _alloca, it is required to include default CRT library, which name
+ * can be deduced from _DLL, _MT and _DEBUG preprocessor macros.
  */
 #ifdef __cplusplus
 extern "C" void *__cdecl _alloca(size_t);
+#endif
+#if defined( _DLL )
+#ifdef _DEBUG
+#pragma comment( lib, "MSVCRTD" )
+#else
+#pragma comment( lib, "MSVCRT" )
+#endif
+#elif defined( _MT )
+#ifdef _DEBUG
+#pragma comment( lib, "LIBCMTD" )
+#else
+#pragma comment( lib, "LIBCMT" )
+#endif
+#else
+#ifdef _DEBUG
+#pragma comment( lib, "LIBCD" )
+#else
+#pragma comment( lib, "LIBC" )
+#endif
 #endif
 __declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4] __asm ret }
 #define _ReturnAddress( ) ( _alloca(1), _ReturnAddress( ) )
