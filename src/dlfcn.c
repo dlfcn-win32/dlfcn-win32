@@ -103,23 +103,17 @@ __declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4]
 #define DLFCN_NOINLINE
 #endif
 
-static void *MyAlloc( size_t size )
-{
+/* Do not define MyAlloc and MyFree as functions because it breaks memory
+ * allocation file name and line number tracking. In debug mode is "malloc"
+ * defined as macro which pass __FILE__ and __LINE__ to helper function.
+ */
 #ifdef _DEBUG
-    return malloc( size );
+#define MyAlloc( size ) malloc( size )
+#define MyFree( ptr ) free( ptr )
 #else
-    return LocalAlloc( LPTR, size );
+#define MyAlloc( size ) LocalAlloc( LPTR, size )
+#define MyFree( ptr ) LocalFree( ptr )
 #endif
-}
-
-static void MyFree( void *ptr )
-{
-#ifdef _DEBUG
-    free( ptr );
-#else
-    LocalFree( ptr );
-#endif
-}
 
 /* Note:
  * MSDN says these functions are not thread-safe. We make no efforts to have
