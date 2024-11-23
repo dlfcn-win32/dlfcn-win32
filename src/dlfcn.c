@@ -184,7 +184,7 @@ static void local_rem( HMODULE hModule )
  * the limit.
  */
 static char error_buffer[65535] = {0};
-static BOOL error_occurred = FALSE;
+static BOOL error_occurred = NO_ERROR;
 
 static void save_err_str( const char *str, DWORD dwMessageId )
 {
@@ -351,7 +351,7 @@ void *dlopen( const char *file, int mode )
     HMODULE hModule = NULL;
     UINT uMode = 0;
 
-    error_occurred = FALSE;
+    error_occurred = NO_ERROR;
 #ifndef DLFCN_WIN32_STATIC_MSC
     libinit();
 #endif
@@ -458,16 +458,21 @@ void *dlopen( const char *file, int mode )
 DLFCN_EXPORT
 int dlclose( void *hModule )
 {
-    BOOL ret = FreeLibrary( hModule );
+    BOOL ret = FALSE;
+	error_occurred = ERROR_INVALID_HANDLE;
 
-    error_occurred = FALSE;
 #ifndef DLFCN_WIN32_STATIC_MSC
     libinit();
 #endif
 
+	if ( hModule && hModule != GetModuleHandle(NULL) )
+	{
+		ret = FreeLibrary( hModule );
+		error_occurred = NO_ERROR;
+	}
+
     /* If the object was loaded with RTLD_LOCAL, remove it from list of local
-     * objects.
-     */
+     * objects. */
     if( ret )
         local_rem( hModule );
     else
@@ -660,7 +665,7 @@ char *dlerror( void )
     /* POSIX says that invoking dlerror( ) a second time, immediately following
      * a prior invocation, shall result in NULL being returned.
      */
-    error_occurred = FALSE;
+    error_occurred = NO_ERROR;
 
     return error_buffer;
 }
@@ -760,7 +765,7 @@ static INT64 sign_extend(UINT64 value, UINT bits)
 {
     const UINT left = 64 - bits;
     const INT64 m1 = -1;
-    const INT64 wide = (INT64) (value << left);
+    const INT64 wide = (INT64) ( value << left );
     const INT64 sign = ( wide < 0 ) ? ( m1 << left ) : 0;
 
     return value | sign;
@@ -792,16 +797,16 @@ static INT64 sign_extend(UINT64 value, UINT bits)
 static BOOL is_import_thunk( const void *addr )
 {
 #if defined(_M_ARM64) || defined(__aarch64__)
-    ULONG opCode1 = * (ULONG *) ( (BYTE *) addr );
-    ULONG opCode2 = * (ULONG *) ( (BYTE *) addr + 4 );
-    ULONG opCode3 = * (ULONG *) ( (BYTE *) addr + 8 );
+    ULONG opCode1 = *(ULONG *) ( (BYTE *) addr );
+    ULONG opCode2 = *(ULONG *) ( (BYTE *) addr + 4 );
+    ULONG opCode3 = *(ULONG *) ( (BYTE *) addr + 8 );
 
-    return (opCode1 & 0x9f00001f) == 0x90000010    /* adrp x16, [page_offset] */
-        && (opCode2 & 0xffe003ff) == 0xf9400210    /* ldr  x16, [x16, offset] */
-        && opCode3 == 0xd61f0200                   /* br   x16 */
+    return ( opCode1 &  0x9f00001f ) == 0x90000010    /* adrp x16, [page_offset] */
+        && ( opCode2 &  0xffe003ff ) == 0xf9400210    /* ldr  x16, [x16, offset] */
+        && ( opCode3 == 0xd61f0200 )                  /* br   x16 */
         ? TRUE : FALSE;
 #else
-    return *(short *) addr == 0x25ff ? TRUE : FALSE;
+    return *(USHORT *) addr == 0x25ff ? TRUE : FALSE;
 #endif
 }
 
@@ -818,16 +823,16 @@ static void *get_address_from_import_address_table( void *iat, DWORD iat_size, c
      *  0x7ff772ae78c4 <+25764>: ldr    x16, [x16, #0xdc0]
      *  0x7ff772ae78c8 <+25768>: br     x16
      */
-    ULONG opCode1 = * (ULONG *) ( (BYTE *) addr );
-    ULONG opCode2 = * (ULONG *) ( (BYTE *) addr + 4 );
+    ULONG opCode1 = *(ULONG *) ( (BYTE *) addr );
+    ULONG opCode2 = *(ULONG *) ( (BYTE *) addr + 4 );
 
     /* Extract the offset from adrp instruction */
-    UINT64 pageLow2 = (opCode1 >> 29) & 3;
-    UINT64 pageHigh19 = (opCode1 >> 5) & ~(~0ull << 19);
-    INT64 page = sign_extend((pageHigh19 << 2) | pageLow2, 21) << 12;
+    UINT64 pageLow2 = ( opCode1 >> 29 ) & 3;
+    UINT64 pageHigh19 = ( opCode1 >> 5 ) & ~( ~0ull << 19 );
+    INT64 page = sign_extend( ( pageHigh19 << 2 ) | pageLow2, 21 ) << 12;
 
     /* Extract the offset from ldr instruction */
-    UINT64 offset = ((opCode2 >> 10) & ~(~0ull << 12)) << 3;
+    UINT64 offset = ( ( opCode2 >> 10 ) & ~( ~0ull << 12 ) ) << 3;
 
     /* Calculate the final address */
     BYTE *ptr = (BYTE *) ( (ULONG64) thkp & ~0xfffull ) + page + offset;
@@ -835,7 +840,7 @@ static void *get_address_from_import_address_table( void *iat, DWORD iat_size, c
     /* Get offset from thunk table (after instruction 0xff 0x25)
      *   4018c8 <_VirtualQuery>: ff 25 4a 8a 00 00
      */
-    ULONG offset = *(ULONG *)( thkp + 2 );
+    ULONG offset = *(ULONG *) ( thkp + 2 );
 #if defined(_M_AMD64) || defined(__x86_64__)
     /* On 64 bit the offset is relative
      *      4018c8:   ff 25 4a 8a 00 00    jmpq    *0x8a4a(%rip)    # 40a318 <__imp_VirtualQuery>
@@ -843,7 +848,7 @@ static void *get_address_from_import_address_table( void *iat, DWORD iat_size, c
      *   100002f20:   ff 25 3a e1 ff ff    jmpq   *-0x1ec6(%rip)    # 0x100001060
      * So cast to signed LONG type
      */
-    BYTE *ptr = (BYTE *)( thkp + 6 + (LONG) offset );
+    BYTE *ptr = (BYTE *) ( thkp + 6 + (LONG) offset );
 #else
     /* On 32 bit the offset is absolute
      *   4019b4:    ff 25 90 71 40 00    jmp    *0x40719
