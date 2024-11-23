@@ -683,7 +683,12 @@ int main()
         printf( "SUCCESS\tClosed global handle.\n" );
 
 #ifdef _DEBUG
-    _CrtDumpMemoryLeaks();
+    ret = _CrtDumpMemoryLeaks();
+    if( ret )
+    {
+        printf( "ERROR\tMemory leak\n" );
+        RETURN_ERROR;
+    }
 #endif
     return 0;
 }
