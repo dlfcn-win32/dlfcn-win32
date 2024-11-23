@@ -465,9 +465,9 @@ int dlclose( void *hModule )
     libinit();
 #endif
 
-	if ( hModule && hModule != GetModuleHandle(NULL) )
+	if ( hModule )
 	{
-		ret = FreeLibrary( hModule );
+		ret = ( hModule == GetModuleHandle(NULL) ) ? TRUE : FreeLibrary( hModule );
 		error_occurred = NO_ERROR;
 	}
 
@@ -549,7 +549,7 @@ void *dlsym( void *handle, const char *name )
     DWORD dwMessageId = 0, cbNeeded = 0, i = 0, count = 0;
     HMODULE hCaller = NULL, hModule = GetModuleHandle( NULL ), hIter = NULL;
 
-    error_occurred = 0;
+    error_occurred = NO_ERROR;
     SetLastError(0);
 
 #ifndef DLFCN_WIN32_STATIC_MSC
