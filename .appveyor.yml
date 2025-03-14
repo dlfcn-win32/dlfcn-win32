@@ -221,6 +221,7 @@ configuration:
   - Release
 
 matrix:
+  fast_finish: true
   exclude:
     - platform: x64
       cc_path: 'C:\MinGW\bin'

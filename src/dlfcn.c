@@ -101,6 +101,12 @@ __declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4]
  * any kind of thread safety.
  */
 
+#if defined(_MSC_VER) && !defined(DLFCN_WIN32_SHARED)
+#define DLFCN32_WIN32_STATIC_MSC 1
+#endif
+
+static void libinit( void );
+
 typedef struct local_object {
     HMODULE hModule;
     struct local_object *previous;
@@ -112,9 +118,9 @@ static local_object first_object;
 /* These functions implement a double linked list for the local objects. */
 static local_object *local_search( HMODULE hModule )
 {
-    local_object *pobject;
+    local_object *pobject = NULL;
 
-    if( hModule == NULL )
+    if( !hModule )
         return NULL;
 
     for( pobject = &first_object; pobject; pobject = pobject->next )
@@ -126,10 +132,10 @@ static local_object *local_search( HMODULE hModule )
 
 static BOOL local_add( HMODULE hModule )
 {
-    local_object *pobject;
-    local_object *nobject;
+    local_object *pobject = NULL;
+    local_object *nobject = NULL;
 
-    if( hModule == NULL )
+    if( !hModule )
         return TRUE;
 
     pobject = local_search( hModule );
@@ -149,15 +155,14 @@ static BOOL local_add( HMODULE hModule )
     nobject->next = NULL;
     nobject->previous = pobject;
     nobject->hModule = hModule;
-
     return TRUE;
 }
 
 static void local_rem( HMODULE hModule )
 {
-    local_object *pobject;
+    local_object *pobject = NULL;
 
-    if( hModule == NULL )
+    if( !hModule )
         return;
 
     pobject = local_search( hModule );
@@ -178,8 +183,8 @@ static void local_rem( HMODULE hModule )
  * MSDN says the buffer cannot be larger than 64K bytes, so we set it to
  * the limit.
  */
-static char error_buffer[65535];
-static BOOL error_occurred;
+static char error_buffer[65535] = {0};
+static BOOL error_occurred = NO_ERROR;
 
 static void save_err_str( const char *str, DWORD dwMessageId )
 {
@@ -241,123 +246,115 @@ static void save_err_ptr_str( const void *ptr, DWORD dwMessageId )
     save_err_str( ptr_buf, dwMessageId );
 }
 
-static UINT MySetErrorMode( UINT uMode )
+typedef BOOL (WINAPI *SetThreadErrorModePtrCB)(DWORD, DWORD *);
+BOOL WINAPI MySetThreadErrorMode(DWORD uMode, DWORD *oldMode )
 {
-    static BOOL (WINAPI *SetThreadErrorModePtr)(DWORD, DWORD *) = NULL;
-    static BOOL failed = FALSE;
-    HMODULE kernel32;
-    DWORD oldMode;
-
-    if( !failed && SetThreadErrorModePtr == NULL )
-    {
-        kernel32 = GetModuleHandleA( "Kernel32.dll" );
-        if( kernel32 != NULL )
-            SetThreadErrorModePtr = (BOOL (WINAPI *)(DWORD, DWORD *)) (LPVOID) GetProcAddress( kernel32, "SetThreadErrorMode" );
-        if( SetThreadErrorModePtr == NULL )
-            failed = TRUE;
-    }
-
-    if( !failed )
-    {
-        if( !SetThreadErrorModePtr( uMode, &oldMode ) )
-            return 0;
-        else
-            return oldMode;
-    }
-    else
-    {
-        return SetErrorMode( uMode );
-    }
+    UINT mode = SetErrorMode( uMode );
+    if ( oldMode )
+        *oldMode = mode;
+    return TRUE;
+}
+static SetThreadErrorModePtrCB SetThreadErrorModePtr = MySetThreadErrorMode;
+static UINT WINAPI MySetErrorMode( UINT uMode )
+{
+    DWORD oldMode = 0;
+    return (SetThreadErrorModePtr( uMode, &oldMode ) == FALSE) ? 0 : oldMode;
 }
 
-static HMODULE MyGetModuleHandleFromAddress( const void *addr )
+typedef DWORD (WINAPI *GetProcessIdCB)( HANDLE hProcess );
+DWORD WINAPI FailGetProcessId( HANDLE hProcess )
 {
-    static BOOL (WINAPI *GetModuleHandleExAPtr)(DWORD, LPCSTR, HMODULE *) = NULL;
-    static BOOL failed = FALSE;
-    HMODULE kernel32;
-    HMODULE hModule;
+	(void)hProcess;
+	SetLastError( (DWORD)E_NOINTERFACE );
+	return 0;
+}
+static GetProcessIdCB MyGetProcessId = NULL;
+
+#include <tlhelp32.h>
+typedef HANDLE (WINAPI *CreateToolhelp32SnapshotCB)( DWORD dwFlags, DWORD dwPid );
+HANDLE WINAPI FailCreateToolhelp32Snapshot( DWORD dwFlags, DWORD dwPid )
+{
+	(void)dwFlags;
+	(void)dwPid;
+	SetLastError( (DWORD)E_NOINTERFACE );
+	return INVALID_HANDLE_VALUE;
+}
+static CreateToolhelp32SnapshotCB MyCreateToolhelp32Snapshot = FailCreateToolhelp32Snapshot;
+
+typedef BOOL (WINAPI *Module32NextCB)( HANDLE hSnapshot, LPMODULEENTRY32 lpme );
+BOOL WINAPI FailModule32Next( HANDLE hSnapshot, LPMODULEENTRY32 lpme )
+{
+	(void)hSnapshot;
+	(void)lpme;
+	SetLastError( (DWORD)E_NOINTERFACE );
+	return FALSE;
+}
+static Module32NextCB MyModule32First = FailModule32Next, MyModule32Next = FailModule32Next;
+
+typedef BOOL (WINAPI *GetModuleHandleExAPtrCB)(DWORD, LPCSTR, HMODULE *);
+BOOL WINAPI HackyGetModuleHandleExA
+    ( DWORD dwFlags, LPCSTR lpModuleName, HMODULE *phModule )
+{
+    /* To get HMODULE from address use undocumented hack from https://stackoverflow.com/a/2396380
+     * The HMODULE of a DLL is the same value as the module's base address.
+     */
     MEMORY_BASIC_INFORMATION info;
-    size_t sLen;
-
-    if( !failed && GetModuleHandleExAPtr == NULL )
+    size_t sLen = VirtualQuery( lpModuleName, &info, sizeof( info ) );
+    (void)dwFlags;
+    if( sLen != sizeof( info ) )
     {
-        kernel32 = GetModuleHandleA( "Kernel32.dll" );
-        if( kernel32 != NULL )
-            GetModuleHandleExAPtr = (BOOL (WINAPI *)(DWORD, LPCSTR, HMODULE *)) (LPVOID) GetProcAddress( kernel32, "GetModuleHandleExA" );
-        if( GetModuleHandleExAPtr == NULL )
-            failed = TRUE;
+        *phModule = NULL;
+        return FALSE;
     }
-
-    if( !failed )
-    {
-        /* If GetModuleHandleExA is available use it with GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS */
-        if( !GetModuleHandleExAPtr( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, addr, &hModule ) )
-            return NULL;
-    }
-    else
-    {
-        /* To get HMODULE from address use undocumented hack from https://stackoverflow.com/a/2396380
-         * The HMODULE of a DLL is the same value as the module's base address.
-         */
-        sLen = VirtualQuery( addr, &info, sizeof( info ) );
-        if( sLen != sizeof( info ) )
-            return NULL;
-        hModule = (HMODULE) info.AllocationBase;
-    }
-
+    *phModule = (HMODULE) info.AllocationBase;
+    return TRUE;
+}
+static GetModuleHandleExAPtrCB GetModuleHandleExAPtr = HackyGetModuleHandleExA;
+static HMODULE WINAPI MyGetModuleHandleFromAddress( const void *addr )
+{
+    HMODULE hModule = NULL;
+    /* If GetModuleHandleExA is available use it with GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS */
+    if( !GetModuleHandleExAPtr( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, addr, &hModule ) )
+        return NULL;
     return hModule;
 }
 
 /* Load Psapi.dll at runtime, this avoids linking caveat */
-static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded )
+typedef BOOL (WINAPI *EnumProcessModulesPtrCB)(HANDLE, HMODULE *, DWORD, LPDWORD);
+BOOL WINAPI Th32EnumProcessModules( HANDLE hProcess, HMODULE *hModules, DWORD cb, LPDWORD lpcbNeeded )
 {
-    static BOOL (WINAPI *EnumProcessModulesPtr)(HANDLE, HMODULE *, DWORD, LPDWORD) = NULL;
-    static BOOL failed = FALSE;
-    UINT uMode;
-    HMODULE psapi;
-
-    if( failed )
+    DWORD i = 0, count = cb / sizeof(HMODULE);
+    MODULEENTRY32 me = {0};
+    HANDLE hShot = MyCreateToolhelp32Snapshot( TH32CS_SNAPMODULE, MyGetProcessId( hProcess ) );
+    if ( hShot == INVALID_HANDLE_VALUE )
         return FALSE;
-
-    if( EnumProcessModulesPtr == NULL )
-    {
-        /* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
-        psapi = GetModuleHandleA( "Kernel32.dll" );
-        if( psapi != NULL )
-            EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) (LPVOID) GetProcAddress( psapi, "K32EnumProcessModules" );
-
-        /* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
-        if( EnumProcessModulesPtr == NULL )
-        {
-            /* Do not let Windows display the critical-error-handler message box */
-            uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
-            psapi = LoadLibraryA( "Psapi.dll" );
-            if( psapi != NULL )
-            {
-                EnumProcessModulesPtr = (BOOL (WINAPI *)(HANDLE, HMODULE *, DWORD, LPDWORD)) (LPVOID) GetProcAddress( psapi, "EnumProcessModules" );
-                if( EnumProcessModulesPtr == NULL )
-                    FreeLibrary( psapi );
-            }
-            MySetErrorMode( uMode );
-        }
-
-        if( EnumProcessModulesPtr == NULL )
-        {
-            failed = TRUE;
-            return FALSE;
-        }
-    }
-
-    return EnumProcessModulesPtr( hProcess, lphModule, cb, lpcbNeeded );
+    me.dwSize = sizeof(me);
+	for
+	(
+		BOOL cont = MyModule32First( hShot, &me )
+		; cont == TRUE; cont = MyModule32Next( hShot, &me )
+	)
+	{
+		if ( i < count )
+			hModules[i] = me.hModule;
+		++i;
+	}
+	CloseHandle( hShot );
+	if ( lpcbNeeded ) *lpcbNeeded = (i * sizeof(HMODULE));
+	return (i < count);
 }
+static EnumProcessModulesPtrCB MyEnumProcessModules = Th32EnumProcessModules;
 
 DLFCN_EXPORT
 void *dlopen( const char *file, int mode )
 {
-    HMODULE hModule;
-    UINT uMode;
+    HMODULE hModule = NULL;
+    UINT uMode = 0;
 
-    error_occurred = FALSE;
+    error_occurred = NO_ERROR;
+#ifndef DLFCN_WIN32_STATIC_MSC
+    libinit();
+#endif
 
     /* Do not let Windows display the critical-error-handler message box */
     uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
@@ -381,10 +378,10 @@ void *dlopen( const char *file, int mode )
     }
     else
     {
-        HANDLE hCurrentProc;
-        DWORD dwProcModsBefore, dwProcModsAfter;
-        char lpFileName[MAX_PATH];
-        size_t i, len;
+        HANDLE hThisProc = NULL;
+        DWORD dwProcModsBefore = 0, dwProcModsAfter = 0;
+        char lpFileName[MAX_PATH] = {0};
+        size_t i = 0, len = 0;
 
         len = strlen( file );
 
@@ -405,9 +402,9 @@ void *dlopen( const char *file, int mode )
             }
             lpFileName[len] = '\0';
 
-            hCurrentProc = GetCurrentProcess( );
+            hThisProc = GetCurrentProcess( );
 
-            if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsBefore ) == 0 )
+            if( MyEnumProcessModules( hThisProc, NULL, 0, &dwProcModsBefore ) == 0 )
                 dwProcModsBefore = 0;
 
             /* POSIX says the search path is implementation-defined.
@@ -423,7 +420,7 @@ void *dlopen( const char *file, int mode )
             }
             else
             {
-                if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
+                if( MyEnumProcessModules( hThisProc, NULL, 0, &dwProcModsAfter ) == 0 )
                     dwProcModsAfter = 0;
 
                 /* If the object was loaded with RTLD_LOCAL, add it to list of local
@@ -455,26 +452,31 @@ void *dlopen( const char *file, int mode )
     /* Return to previous state of the error-mode bit flags. */
     MySetErrorMode( uMode );
 
-    return (void *) hModule;
+    return hModule;
 }
 
 DLFCN_EXPORT
-int dlclose( void *handle )
+int dlclose( void *hModule )
 {
-    HMODULE hModule = (HMODULE) handle;
-    BOOL ret;
+    BOOL ret = FALSE;
+	error_occurred = ERROR_INVALID_HANDLE;
 
-    error_occurred = FALSE;
+#ifndef DLFCN_WIN32_STATIC_MSC
+    libinit();
+#endif
 
-    ret = FreeLibrary( hModule );
+	if ( hModule )
+	{
+		ret = ( hModule == GetModuleHandle(NULL) ) ? TRUE : FreeLibrary( hModule );
+		error_occurred = NO_ERROR;
+	}
 
     /* If the object was loaded with RTLD_LOCAL, remove it from list of local
-     * objects.
-     */
+     * objects. */
     if( ret )
         local_rem( hModule );
     else
-        save_err_ptr_str( handle, GetLastError( ) );
+        save_err_ptr_str( hModule, GetLastError( ) );
 
     /* dlclose's return value in inverted in relation to FreeLibrary's. */
     ret = !ret;
@@ -482,32 +484,84 @@ int dlclose( void *handle )
     return (int) ret;
 }
 
+/* Named as such in case ever need to bring it to initial scope of dlsym */
+typedef struct
+{
+    DWORD    cbHeapSize;
+    HMODULE *hModules;
+    HANDLE   hHeap;
+} dlsym_vars;
+
+#define TEST_WITH_MALLOC 0
+
+static void dlsym_clear_heap( dlsym_vars *vars )
+{
+    if ( vars->hModules )
+#if TEST_WITH_MALLOC
+        free( vars->hModules );
+#else
+        HeapFree( vars->hHeap, 0, vars->hModules );
+    HeapDestroy( vars->hHeap );
+#endif
+    vars->hModules = NULL;
+    vars->hHeap = NULL;
+}
+
+static DWORD dlsym_alloc_heap( dlsym_vars *vars, DWORD cbNeed )
+{
+	DWORD dwMessageId = 0;
+
+#if TEST_WITH_MALLOC
+	vars->hModules = calloc(cbNeed,1);
+#else
+	/* We have to allocate more than we need because the spec says
+	 * HeapAlloc cannot allocate the full heap to an allocation as it
+	 * needs some of the memory for internal data, HeapCreate should've
+	 * accounted for this with a prefix allocation but oh well.  */
+	vars->hHeap = HeapCreate( 0, cbNeed * 2, cbNeed * 2 );
+	if ( !(vars->hHeap) )
+	{
+		dwMessageId = GetLastError();
+		return dwMessageId ? dwMessageId : ERROR_NOT_ENOUGH_MEMORY;
+	}
+
+	/* Using HeapAlloc() allows callers to use dlsym( RTLD_NEXT, "malloc" ) */
+	vars->hModules = HeapAlloc( vars->hHeap, HEAP_ZERO_MEMORY, cbNeed );
+#endif
+	if ( !(vars->hModules) )
+	{
+		dwMessageId = GetLastError();
+		dlsym_clear_heap( vars );
+		return dwMessageId ? dwMessageId : ERROR_INVALID_TABLE;
+	}
+
+	vars->cbHeapSize = cbNeed;
+	return 0;
+}
+
 DLFCN_NOINLINE /* Needed for _ReturnAddress() */
 DLFCN_EXPORT
 void *dlsym( void *handle, const char *name )
 {
-    FARPROC symbol;
-    HMODULE hCaller;
-    HMODULE hModule;
-    DWORD dwMessageId;
+    dlsym_vars vars = {0};
+    FARPROC symbol = NULL;
+    HANDLE hThisProc = GetCurrentProcess( );
+    DWORD dwMessageId = 0, cbNeeded = 0, i = 0, count = 0;
+    HMODULE hCaller = NULL, hModule = GetModuleHandle( NULL ), hIter = NULL;
 
-    error_occurred = FALSE;
+    error_occurred = NO_ERROR;
+    SetLastError(0);
 
-    symbol = NULL;
-    hCaller = NULL;
-    hModule = GetModuleHandle( NULL );
-    dwMessageId = 0;
+#ifndef DLFCN_WIN32_STATIC_MSC
+    libinit();
+#endif
 
-    if( handle == RTLD_DEFAULT )
-    {
-        /* The symbol lookup happens in the normal global scope; that is,
-         * a search for a symbol using this handle would find the same
-         * definition as a direct use of this symbol in the program code.
-         * So use same lookup procedure as when filename is NULL.
-         */
-        handle = hModule;
-    }
-    else if( handle == RTLD_NEXT )
+    /* The symbol lookup happens in the normal global scope; that is,
+    * a search for a symbol using this handle would find the same
+    * definition as a direct use of this symbol in the program code.
+    * So use same lookup procedure as when filename is NULL.
+    */
+    if ( handle == RTLD_NEXT )
     {
         /* Specifies the next object after this one that defines name.
          * This one refers to the object containing the invocation of dlsym().
@@ -518,84 +572,85 @@ void *dlsym( void *handle, const char *name )
          * GetModuleHandleExA() function or hack via VirtualQuery().
          */
         hCaller = MyGetModuleHandleFromAddress( _ReturnAddress( ) );
-
-        if( hCaller == NULL )
+        if( !hCaller )
         {
             dwMessageId = ERROR_INVALID_PARAMETER;
             goto end;
         }
     }
-
-    if( handle != RTLD_NEXT )
+    else
     {
-        symbol = GetProcAddress( (HMODULE) handle, name );
+        if ( handle == RTLD_DEFAULT )
+            handle = hModule;
 
-        if( symbol != NULL )
+        symbol = GetProcAddress( handle, name );
+
+        if( symbol )
             goto end;
     }
 
-    /* If the handle for the original program file is passed, also search
-     * in all globally loaded objects.
-     */
+    /* Just search always */
 
-    if( hModule == handle || handle == RTLD_NEXT )
+    /* If gonna make a call either way then might as well use this instead
+     * of GetSystemInfo() for the pagesize */
+    if ( !MyEnumProcessModules( hThisProc, NULL, 0, &cbNeeded ) || !cbNeeded )
     {
-        HANDLE hCurrentProc;
-        HMODULE *modules;
-        DWORD cbNeeded;
-        DWORD dwSize;
-        size_t i;
+        dwMessageId = GetLastError();
+        if ( !dwMessageId ) dwMessageId = ERROR_FUNCTION_FAILED;
+        goto end;
+    }
 
-        hCurrentProc = GetCurrentProcess( );
-
+    while ( vars.cbHeapSize < cbNeeded )
+    {
+		dwMessageId = dlsym_alloc_heap( &vars, cbNeeded );
+		if ( dwMessageId )
+			goto end;
         /* GetModuleHandle( NULL ) only returns the current program file. So
          * if we want to get ALL loaded module including those in linked DLLs,
-         * we have to use EnumProcessModules( ).
-         */
-        if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwSize ) != 0 )
+         * we have to use EnumProcessModules( ). */
+        if ( !MyEnumProcessModules( hThisProc, vars.hModules, cbNeeded, &cbNeeded ) || !cbNeeded )
         {
-            modules = malloc( dwSize );
-            if( modules )
-            {
-                if( MyEnumProcessModules( hCurrentProc, modules, dwSize, &cbNeeded ) != 0 && dwSize == cbNeeded )
-                {
-                    for( i = 0; i < dwSize / sizeof( HMODULE ); i++ )
-                    {
-                        if( handle == RTLD_NEXT && hCaller )
-                        {
-                            /* Next modules can be used for RTLD_NEXT */
-                            if( hCaller == modules[i] )
-                                hCaller = NULL;
-                            continue;
-                        }
-                        if( local_search( modules[i] ) )
-                            continue;
-                        symbol = GetProcAddress( modules[i], name );
-                        if( symbol != NULL )
-                        {
-                            free( modules );
-                            goto end;
-                        }
-                    }
-
-                }
-                free( modules );
-            }
-            else
-            {
-                dwMessageId = ERROR_NOT_ENOUGH_MEMORY;
-                goto end;
-            }
+            dwMessageId = GetLastError();
+            if ( !dwMessageId ) dwMessageId = ERROR_CALLBACK_SUPPLIED_INVALID_DATA;
+            goto freeHeap;
         }
+
+        /* No big deal if what we got was less than the heap size so long as
+         * we didn't need more than the heap size */
+        if ( cbNeeded > vars.cbHeapSize )
+            dlsym_clear_heap( &vars );
     }
 
-end:
-    if( symbol == NULL )
+    /* Realised my mistake here, we were indeed supposed to search from
+     * bottom of the array since that's where the top level wrappers of
+     * functions would lie. */
+    for( i = 0, count = cbNeeded / sizeof( HMODULE ); i < count; ++i )
     {
-        if( !dwMessageId )
-            dwMessageId = ERROR_PROC_NOT_FOUND;
-        save_err_str( name, dwMessageId );
+        hIter = vars.hModules[i];
+        if( hCaller )
+        {
+            /* Next modules can be used for RTLD_NEXT, this loop cannot be
+             * reached without setting hCaller in this context anyways so
+             * we just skip checking if handle == RTLD_NEXT */
+            if( hCaller == hIter )
+                hCaller = NULL;
+            continue;
+        }
+        if( local_search( hIter ) )
+            continue;
+        symbol = GetProcAddress( hIter, name );
+        if( symbol )
+            break;
     }
+
+    if ( i == count )
+        dwMessageId = ERROR_PROC_NOT_FOUND;
+
+freeHeap:
+    dlsym_clear_heap( &vars );
+end:
+    if( dwMessageId )
+        save_err_str( name, dwMessageId );
 
     return *(void **) (&symbol);
 }
@@ -610,7 +665,7 @@ char *dlerror( void )
     /* POSIX says that invoking dlerror( ) a second time, immediately following
      * a prior invocation, shall result in NULL being returned.
      */
-    error_occurred = FALSE;
+    error_occurred = NO_ERROR;
 
     return error_buffer;
 }
@@ -619,7 +674,7 @@ char *dlerror( void )
  * for details */
 
 /* Get specific image section */
-static BOOL get_image_section( HMODULE module, int index, void **ptr, DWORD *size )
+static BOOL get_image_section( HMODULE module, DWORD index, void **ptr, DWORD *size )
 {
     IMAGE_DOS_HEADER *dosHeader;
     IMAGE_NT_HEADERS *ntHeaders;
@@ -699,7 +754,7 @@ static BOOL is_valid_address( const void *addr )
     /* check valid pointer */
     result = VirtualQuery( addr, &info, sizeof( info ) );
 
-    if( result == 0 || info.AllocationBase == NULL || info.AllocationProtect == 0 || info.AllocationProtect == PAGE_NOACCESS )
+    if( !result || !(info.AllocationBase) || !(info.AllocationProtect) || info.AllocationProtect == PAGE_NOACCESS )
         return FALSE;
 
     return TRUE;
@@ -710,7 +765,7 @@ static INT64 sign_extend(UINT64 value, UINT bits)
 {
     const UINT left = 64 - bits;
     const INT64 m1 = -1;
-    const INT64 wide = (INT64) (value << left);
+    const INT64 wide = (INT64) ( value << left );
     const INT64 sign = ( wide < 0 ) ? ( m1 << left ) : 0;
 
     return value | sign;
@@ -726,32 +781,32 @@ static INT64 sign_extend(UINT64 value, UINT bits)
  *
  * On ARM64, an import thunk is also a relative jump pointing into the
  * import address table, implemented by the following three instructions:
- * 
+ *
  *      adrp x16, [page_offset]
- * Calculates the page address (aligned to 4KB) the IAT is at, based 
- * on the value of x16, with page_offset. 
+ * Calculates the page address (aligned to 4KB) the IAT is at, based
+ * on the value of x16, with page_offset.
  *
  *      ldr  x16, [x16, offset]
  * Calculates the final IAT address, x16 <- x16 + offset.
- * 
+ *
  *      br   x16
  * Jump to the address in x16.
- * 
+ *
  * The register used here is hardcoded to be x16.
  */
 static BOOL is_import_thunk( const void *addr )
 {
 #if defined(_M_ARM64) || defined(__aarch64__)
-    ULONG opCode1 = * (ULONG *) ( (BYTE *) addr );
-    ULONG opCode2 = * (ULONG *) ( (BYTE *) addr + 4 );
-    ULONG opCode3 = * (ULONG *) ( (BYTE *) addr + 8 );
+    ULONG opCode1 = *(ULONG *) ( (BYTE *) addr );
+    ULONG opCode2 = *(ULONG *) ( (BYTE *) addr + 4 );
+    ULONG opCode3 = *(ULONG *) ( (BYTE *) addr + 8 );
 
-    return (opCode1 & 0x9f00001f) == 0x90000010    /* adrp x16, [page_offset] */
-        && (opCode2 & 0xffe003ff) == 0xf9400210    /* ldr  x16, [x16, offset] */
-        && opCode3 == 0xd61f0200                   /* br   x16 */
+    return ( opCode1 &  0x9f00001f ) == 0x90000010    /* adrp x16, [page_offset] */
+        && ( opCode2 &  0xffe003ff ) == 0xf9400210    /* ldr  x16, [x16, offset] */
+        && ( opCode3 == 0xd61f0200 )                  /* br   x16 */
         ? TRUE : FALSE;
 #else
-    return *(short *) addr == 0x25ff ? TRUE : FALSE;
+    return *(USHORT *) addr == 0x25ff ? TRUE : FALSE;
 #endif
 }
 
@@ -768,16 +823,16 @@ static void *get_address_from_import_address_table( void *iat, DWORD iat_size, c
      *  0x7ff772ae78c4 <+25764>: ldr    x16, [x16, #0xdc0]
      *  0x7ff772ae78c8 <+25768>: br     x16
      */
-    ULONG opCode1 = * (ULONG *) ( (BYTE *) addr );
-    ULONG opCode2 = * (ULONG *) ( (BYTE *) addr + 4 );
+    ULONG opCode1 = *(ULONG *) ( (BYTE *) addr );
+    ULONG opCode2 = *(ULONG *) ( (BYTE *) addr + 4 );
 
     /* Extract the offset from adrp instruction */
-    UINT64 pageLow2 = (opCode1 >> 29) & 3;
-    UINT64 pageHigh19 = (opCode1 >> 5) & ~(~0ull << 19);
-    INT64 page = sign_extend((pageHigh19 << 2) | pageLow2, 21) << 12;
+    UINT64 pageLow2 = ( opCode1 >> 29 ) & 3;
+    UINT64 pageHigh19 = ( opCode1 >> 5 ) & ~( ~0ull << 19 );
+    INT64 page = sign_extend( ( pageHigh19 << 2 ) | pageLow2, 21 ) << 12;
 
     /* Extract the offset from ldr instruction */
-    UINT64 offset = ((opCode2 >> 10) & ~(~0ull << 12)) << 3;
+    UINT64 offset = ( ( opCode2 >> 10 ) & ~( ~0ull << 12 ) ) << 3;
 
     /* Calculate the final address */
     BYTE *ptr = (BYTE *) ( (ULONG64) thkp & ~0xfffull ) + page + offset;
@@ -785,7 +840,7 @@ static void *get_address_from_import_address_table( void *iat, DWORD iat_size, c
     /* Get offset from thunk table (after instruction 0xff 0x25)
      *   4018c8 <_VirtualQuery>: ff 25 4a 8a 00 00
      */
-    ULONG offset = *(ULONG *)( thkp + 2 );
+    ULONG offset = *(ULONG *) ( thkp + 2 );
 #if defined(_M_AMD64) || defined(__x86_64__)
     /* On 64 bit the offset is relative
      *      4018c8:   ff 25 4a 8a 00 00    jmpq    *0x8a4a(%rip)    # 40a318 <__imp_VirtualQuery>
@@ -793,7 +848,7 @@ static void *get_address_from_import_address_table( void *iat, DWORD iat_size, c
      *   100002f20:   ff 25 3a e1 ff ff    jmpq   *-0x1ec6(%rip)    # 0x100001060
      * So cast to signed LONG type
      */
-    BYTE *ptr = (BYTE *)( thkp + 6 + (LONG) offset );
+    BYTE *ptr = (BYTE *) ( thkp + 6 + (LONG) offset );
 #else
     /* On 32 bit the offset is absolute
      *   4019b4:    ff 25 90 71 40 00    jmp    *0x40719
@@ -846,6 +901,9 @@ static BOOL fill_info( const void *addr, Dl_info *info )
 DLFCN_EXPORT
 int dladdr( const void *addr, Dl_info *info )
 {
+#ifndef DLFCN_WIN32_STATIC_MSC
+    libinit();
+#endif
     if( info == NULL )
         return 0;
 
@@ -894,12 +952,120 @@ int dladdr( const void *addr, Dl_info *info )
     return 1;
 }
 
+/* Keep initialiser/terminator code out of DllMain so it can be used in static
+ * builds too */
+#ifdef DLFCN32_WIN32_STATIC_MSC
+static BOOL libterm_atexit = FALSE;
+#endif
+static BOOL libinitcalled = FALSE;
+static HMODULE hPsapi = NULL;
+static void libterm( void )
+{
+    if ( hPsapi )
+    {
+		MyEnumProcessModules = Th32EnumProcessModules;
+        FreeLibrary( hPsapi );
+        hPsapi = NULL;
+    }
+    libinitcalled = FALSE;
+}
+static void libinit( void )
+{
+    HMODULE kernel32 = NULL;
+    UINT uMode = 0;
+
+    if ( libinitcalled )
+        return;
+
+    /* Do not let Windows display the critical-error-handler message box */
+    uMode = MySetErrorMode( SEM_FAILCRITICALERRORS );
+
+    kernel32 = GetModuleHandleA( "Kernel32.dll" );
+    if( kernel32 )
+    {
+        SetThreadErrorModePtr = (SetThreadErrorModePtrCB)GetProcAddress( kernel32, "SetThreadErrorMode" );
+        GetModuleHandleExAPtr = (GetModuleHandleExAPtrCB)GetProcAddress( kernel32, "GetModuleHandleExA" );
+        MyGetProcessId = (GetProcessIdCB)GetProcAddress( kernel32, "K32GetProcessId");
+        MyCreateToolhelp32Snapshot = (CreateToolhelp32SnapshotCB)GetProcAddress( kernel32, "K32CreateToolHelp32SnapShot" );
+        MyModule32First = (Module32NextCB)GetProcAddress(kernel32, "K32Module32First" );
+        MyModule32Next = (Module32NextCB)GetProcAddress(kernel32, "K32Module32Next" );
+
+        if ( !SetThreadErrorModePtr )
+            SetThreadErrorModePtr = MySetThreadErrorMode;
+
+        if ( !GetModuleHandleExAPtr )
+            GetModuleHandleExAPtr = HackyGetModuleHandleExA;
+
+        if ( !MyGetProcessId )
+            MyGetProcessId = (GetProcessIdCB)GetProcAddress( kernel32, "GetProcessId");
+
+        if ( !MyCreateToolhelp32Snapshot )
+            MyCreateToolhelp32Snapshot = (CreateToolhelp32SnapshotCB)GetProcAddress( kernel32, "CreateToolHelp32SnapShot" );
+
+        if ( !MyModule32First )
+            MyModule32First = (Module32NextCB)GetProcAddress(kernel32, "Module32First" );
+
+        if ( !MyModule32Next )
+            MyModule32Next = (Module32NextCB)GetProcAddress(kernel32, "Module32Next" );
+
+        if ( !MyGetProcessId )
+            MyGetProcessId = FailGetProcessId;
+
+        if ( !MyCreateToolhelp32Snapshot )
+            MyCreateToolhelp32Snapshot = FailCreateToolhelp32Snapshot;
+
+        if ( !MyModule32First )
+            MyModule32First = FailModule32Next;
+
+        if ( !MyModule32Next )
+            MyModule32Next = FailModule32Next;
+
+        /* Windows 7 and newer versions have K32EnumProcessModules in Kernel32.dll which is always pre-loaded */
+        MyEnumProcessModules  = (EnumProcessModulesPtrCB)GetProcAddress( kernel32, "K32EnumProcessModules" );
+    }
+
+    /* Windows Vista and older version have EnumProcessModules in Psapi.dll which needs to be loaded */
+    if( !kernel32 || !MyEnumProcessModules )
+    {
+		if ( !hPsapi )
+			hPsapi = LoadLibraryA( "Psapi.dll" );
+        if ( !hPsapi )
+            MyEnumProcessModules = Th32EnumProcessModules;
+        else
+        {
+            MyEnumProcessModules = (EnumProcessModulesPtrCB)GetProcAddress( hPsapi, "EnumProcessModules" );
+            if( !MyEnumProcessModules )
+                libterm();
+        }
+    }
+
+    MySetErrorMode( uMode );
+    libinitcalled = TRUE;
+#ifdef DLFCN32_WIN32_STATIC_MSC
+	if ( !libterm_atexit )
+	{
+		atexit(libterm);
+		libterm_atexit = TRUE;
+	}
+#endif
+}
+
+#ifdef __GNUC__
+static void __attribute__((constructor))   _libinit(void) { libinit(); };
+static void __attribute__((deconstructor)) _libterm(void) { libterm(); };
+#endif
+
 #ifdef DLFCN_WIN32_SHARED
-BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
+BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvTerminated )
 {
     (void) hinstDLL;
-    (void) fdwReason;
-    (void) lpvReserved;
+    (void) lpvTerminated;
+    libinit();
+
+    /* Just a fallback for MSVC, not sure the atexit() will work out ther after
+     * all */
+    if ( fdwReason == DLL_PROCESS_DETACH )
+		libterm();
     return TRUE;
 }
 #endif
