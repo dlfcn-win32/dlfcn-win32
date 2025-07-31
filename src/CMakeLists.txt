@@ -3,6 +3,8 @@ set(sources dlfcn.c)
 
 
 add_library(dl ${sources})
+# Support for FetchContent workflow
+add_library(dlfcn-win32::dl ALIAS dl)
 
 # Correctly export the location of installed includes in the target
 target_include_directories(dl

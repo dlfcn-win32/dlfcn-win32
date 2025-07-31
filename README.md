@@ -20,8 +20,11 @@ It follows the standard as described here:
 Using This Library
 ------------------
 
-### Using CMake 
-Once the library has been installed, add to your project `CMakeLists.txt` : 
+### Using CMake
+
+#### Use installed library
+
+Once the library has been installed (for example by compiling from source or installing it via a package manager), add to your project `CMakeLists.txt` : 
 ~~~cmake
 ...
 find_package(dlfcn-win32 REQUIRED)
@@ -44,6 +47,28 @@ target_link_libraries(<target> ${CMAKE_DL_LIBS})
 ~~~
 
 When cross-compiling you might want to set [`CMAKE_CROSSCOMPILING_EMULATOR`](https://cmake.org/cmake/help/latest/variable/CMAKE_CROSSCOMPILING_EMULATOR.html) to the path of wine to run tests.
+
+#### Download and build library as part of CMake build
+
+If you do not have installed and you do not want to install the library, you can also download and build it using [CMake's FetchContent module](https://cmake.org/cmake/help/latest/module/FetchContent.html). Just add in your CMake project:
+~~~cmake
+...
+if (WIN32)
+  include(FetchContent)
+  FetchContent_Declare(
+    dlfcn-win32
+    GIT_REPOSITORY "https://github.com/dlfcn-win32/dlfcn-win32.git"
+    GIT_TAG "v1.5.0"
+    SYSTEM
+  )
+  FetchContent_MakeAvailable(dlfcn-win32)
+  set(CMAKE_DL_LIBS dlfcn-win32::dl)
+endif ()
+...
+target_link_libraries(<target> ${CMAKE_DL_LIBS})
+...
+~~~
+
 
 Authors
 -------
