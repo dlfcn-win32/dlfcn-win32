@@ -204,7 +204,11 @@ int main()
         RETURN_ERROR;
     }
     else
+    {
+        char *error_without_name = strchr( error, ':' );
+        error = error_without_name ? ( error_without_name + 2 ) : error;
         printf( "SUCCESS\tCould not open file with too long file name: %s\n", error );
+    }
 
     uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
     library3 = LoadLibraryA( toolongfile );
@@ -683,7 +687,12 @@ int main()
         printf( "SUCCESS\tClosed global handle.\n" );
 
 #ifdef _DEBUG
-    _CrtDumpMemoryLeaks();
+    ret = _CrtDumpMemoryLeaks();
+    if( ret )
+    {
+        printf( "ERROR\tMemory leak\n" );
+        RETURN_ERROR;
+    }
 #endif
     return 0;
 }

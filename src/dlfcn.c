@@ -24,6 +24,10 @@
  * THE SOFTWARE.
  */
 
+#ifdef _MSC_VER
+#pragma comment( lib, "KERNEL32" )
+#endif
+
 #ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h> /* malloc() and free() */
@@ -74,9 +78,30 @@ extern "C" void *_ReturnAddress(void);
  * because inline assembly does not have a return value, put it into naked
  * function which does not have prologue and epilogue and preserve registers.
  * When compiling in C++ mode, it is required to have C declaration for _alloca.
+ * For using _alloca, it is required to include default CRT library, which name
+ * can be deduced from _DLL, _MT and _DEBUG preprocessor macros.
  */
 #ifdef __cplusplus
 extern "C" void *__cdecl _alloca(size_t);
+#endif
+#if defined( _DLL )
+#ifdef _DEBUG
+#pragma comment( lib, "MSVCRTD" )
+#else
+#pragma comment( lib, "MSVCRT" )
+#endif
+#elif defined( _MT )
+#ifdef _DEBUG
+#pragma comment( lib, "LIBCMTD" )
+#else
+#pragma comment( lib, "LIBCMT" )
+#endif
+#else
+#ifdef _DEBUG
+#pragma comment( lib, "LIBCD" )
+#else
+#pragma comment( lib, "LIBC" )
+#endif
 #endif
 __declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4] __asm ret }
 #define _ReturnAddress( ) ( _alloca(1), _ReturnAddress( ) )
@@ -103,23 +128,17 @@ __declspec( naked ) static void *_ReturnAddress( void ) { __asm mov eax, [ebp+4]
 #define DLFCN_NOINLINE
 #endif
 
-static void *MyAlloc( size_t size )
-{
+/* Do not define MyAlloc and MyFree as functions because it breaks memory
+ * allocation file name and line number tracking. In debug mode is "malloc"
+ * defined as macro which pass __FILE__ and __LINE__ to helper function.
+ */
 #ifdef _DEBUG
-    return malloc( size );
+#define MyAlloc( size ) malloc( size )
+#define MyFree( ptr ) free( ptr )
 #else
-    return LocalAlloc( LPTR, size );
+#define MyAlloc( size ) LocalAlloc( LPTR, size )
+#define MyFree( ptr ) LocalFree( ptr )
 #endif
-}
-
-static void MyFree( void *ptr )
-{
-#ifdef _DEBUG
-    free( ptr );
-#else
-    LocalFree( ptr );
-#endif
-}
 
 /* Note:
  * MSDN says these functions are not thread-safe. We make no efforts to have
@@ -936,4 +955,15 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
     (void) lpvReserved;
     return TRUE;
 }
+
+/* When requested defines DLL entry point which avoids using CRT library */
+#ifdef DLFCN_WIN32_SHARED_ENTRYPOINT
+#ifdef __cplusplus
+extern "C"
+#endif
+BOOL WINAPI _DllMainCRTStartup( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
+{
+    return DllMain( hinstDLL, fdwReason, lpvReserved );
+}
+#endif
 #endif

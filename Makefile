@@ -32,7 +32,7 @@ libdl.a: $(SOURCES)
 	$(RANLIB) $@
 
 libdl.dll: $(SOURCES)
-	$(CC) $(CFLAGS) $(SHFLAGS) -DDLFCN_WIN32_SHARED -shared -o $@ $^
+	$(CC) $(CFLAGS) $(SHFLAGS) -DDLFCN_WIN32_SHARED -DDLFCN_WIN32_SHARED_ENTRYPOINT -D_DllMainCRTStartup=DllMainCRTStartup -nostartfiles -nostdlib -shared -o $@ $^ -lkernel32
 
 libdl.lib: libdl.dll
 	$(LIBCMD) /machine:i386 /def:libdl.def

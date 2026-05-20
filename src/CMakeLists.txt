@@ -15,6 +15,14 @@ set_target_properties(dl PROPERTIES DEFINE_SYMBOL "")
 
 # set shared mode for compiling library and propagate mode to cmake clients
 if (BUILD_SHARED_LIBS)
+    # for non-debug shared mode, avoid linking to CRT library as it is not needed
+    if (MSVC)
+        set_property(TARGET dl APPEND PROPERTY COMPILE_OPTIONS $<$<NOT:$<CONFIG:Debug>>:/Zl /GS->)
+    else (MSVC)
+        set_property(TARGET dl APPEND PROPERTY COMPILE_DEFINITIONS $<$<NOT:$<CONFIG:Debug>>:_DllMainCRTStartup=DllMainCRTStartup>)
+        set_property(TARGET dl APPEND PROPERTY LINK_OPTIONS $<$<NOT:$<CONFIG:Debug>>:-nostartfiles -nostdlib -lkernel32>)
+    endif (MSVC)
+    set_property(TARGET dl APPEND PROPERTY COMPILE_DEFINITIONS $<$<NOT:$<CONFIG:Debug>>:DLFCN_WIN32_SHARED_ENTRYPOINT>)
     target_compile_definitions(dl PUBLIC DLFCN_WIN32_SHARED)
 endif (BUILD_SHARED_LIBS)
 
